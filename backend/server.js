@@ -296,7 +296,7 @@ async function postJson(url, body, headers) {
     }
   }
   if (!response.ok) {
-    throw new Error(data.error_description || data.error || data.message || `HTTP ${response.status}`);
+    throw new Error(normalizeError(data.error_description || data.error || data.message || data || `HTTP ${response.status}`));
   }
   return data;
 }
@@ -405,7 +405,10 @@ function addCors(res) {
 function normalizeError(error) {
   if (!error) return "Server error";
   if (typeof error === "string") return error;
-  if (error.message) return error.message;
+  if (typeof error.message === "string") return error.message;
+  if (error.message) return normalizeError(error.message);
+  if (typeof error.error === "string") return error.error;
+  if (error.error) return normalizeError(error.error);
   try {
     return JSON.stringify(error);
   } catch {

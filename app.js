@@ -638,8 +638,12 @@ function getUserId() {
 function formatApiError(error) {
   if (!error) return "Unknown error";
   if (typeof error === "string") return error;
-  if (error.message) return error.message;
-  if (error.error?.message) return error.error.message;
+  if (typeof error.message === "string") return error.message;
+  if (error.message) return formatApiError(error.message);
+  if (typeof error.error?.message === "string") return error.error.message;
+  if (error.error?.message) return formatApiError(error.error.message);
+  if (typeof error.error === "string") return error.error;
+  if (error.error) return formatApiError(error.error);
   try {
     return JSON.stringify(error);
   } catch {
