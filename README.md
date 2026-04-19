@@ -30,6 +30,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - WhatsApp-style registration flow with phone entry, verification code, and profile setup.
 - WhatsApp Web-style desktop layout with recent chats on the left and the active conversation on the right.
 - Mobile keeps WhatsApp-style navigation with a clean recent chats home screen and a separate chat screen.
+- BBM Messenger-inspired visual palette with blue accents and charcoal details.
 - Active chat screen with message history, back navigation, call/video/more actions, and a message composer.
 - Browser-side AES-GCM message encryption before messages are stored in local demo state.
 - `@chatgpt` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
