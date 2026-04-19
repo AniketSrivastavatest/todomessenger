@@ -61,6 +61,7 @@ let state = loadState();
 let currentView = "home";
 let encryptionKey;
 let activeReminderTaskId = "";
+let nativePushRegistration;
 
 const els = {
   activeAvatar: document.querySelector("#activeAvatar"),
@@ -223,6 +224,7 @@ els.profileForm.addEventListener("submit", (event) => {
   currentView = "home";
   saveState();
   render();
+  sendStoredFcmToken();
 });
 
 els.chatSearch.addEventListener("input", renderConversations);
@@ -243,6 +245,7 @@ document.addEventListener("click", (event) => {
     els.moreMenuPanel.hidden = true;
   }
 });
+window.addEventListener("todomessenger:fcmToken", registerFcmToken);
 els.quickTaskButton.addEventListener("click", () => openQuickTaskDialog(els.messageInput.value.trim(), "current chat"));
 els.cancelQuickTask.addEventListener("click", () => els.quickTaskDialog.close());
 els.closeQuickTaskDialog.addEventListener("click", () => els.quickTaskDialog.close());
@@ -1134,6 +1137,39 @@ function notifyTaskReminder(task) {
       els.reminderDialog.show();
     }
   }
+}
+
+async function registerFcmToken(event) {
+  const token = event.detail?.token;
+  if (!token) return;
+  nativePushRegistration = {
+    token,
+    platform: event.detail?.platform || "webview"
+  };
+  await sendStoredFcmToken();
+}
+
+async function sendStoredFcmToken() {
+  if (!nativePushRegistration?.token) return;
+  try {
+    await fetch(`${getBackendUrl()}/api/push/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: nativePushRegistration.token,
+        platform: nativePushRegistration.platform,
+        userId: getPushUserId()
+      })
+    });
+  } catch {
+    // Push is optional; reminders still work in-app if backend registration fails.
+  }
+}
+
+function getPushUserId() {
+  const user = state.registration.user;
+  if (!user?.phone) return "demo-user";
+  return normalizePhoneNumber(user.phone) || "demo-user";
 }
 
 function getActiveConversation() {

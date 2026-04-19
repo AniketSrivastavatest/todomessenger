@@ -67,6 +67,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/push/register") {
+      const body = await readJson(req);
+      sendJson(res, 200, registerPushToken(body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/push/send-test") {
+      const body = await readJson(req);
+      sendJson(res, 200, await sendTestPush(body));
+      return;
+    }
+
     if (req.method === "POST" && ["/api/ai/blu", "/api/ai/chatgpt"].includes(url.pathname)) {
       const body = await readJson(req);
       sendJson(res, 200, await askBlu(body));
@@ -282,6 +294,110 @@ function normalizeSuggestedTasks(text) {
   }
 }
 
+function registerPushToken(body) {
+  if (!body.token) {
+    throw new Error("Missing push token.");
+  }
+
+  const store = readStore();
+  const tokenRecord = {
+    token: String(body.token),
+    userId: String(body.userId || "demo-user"),
+    platform: String(body.platform || "android"),
+    updatedAt: new Date().toISOString()
+  };
+  store.pushTokens = [
+    tokenRecord,
+    ...store.pushTokens.filter((item) => item.token !== tokenRecord.token)
+  ].slice(0, 1000);
+  writeStore(store);
+  return { ok: true, registered: true };
+}
+
+async function sendTestPush(body) {
+  const store = readStore();
+  const token = body.token || store.pushTokens.find((item) => item.userId === (body.userId || "demo-user"))?.token;
+  if (!token) {
+    throw new Error("No push token registered for this user.");
+  }
+
+  return sendFcmMessage({
+    token,
+    title: body.title || "TodoMessenger reminder",
+    body: body.body || "This is a Firebase Cloud Messaging test.",
+    data: body.data || {}
+  });
+}
+
+async function sendFcmMessage({ token, title, body, data = {} }) {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    throw new Error("Missing FIREBASE_PROJECT_ID.");
+  }
+
+  const accessToken = await getFirebaseAccessToken();
+  return postJson(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    JSON.stringify({
+      message: {
+        token,
+        notification: { title, body },
+        data: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, String(value)])),
+        android: {
+          priority: "HIGH",
+          notification: {
+            channel_id: "task_reminders"
+          }
+        }
+      }
+    }),
+    {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    }
+  );
+}
+
+async function getFirebaseAccessToken() {
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  if (!clientEmail || !privateKey) {
+    throw new Error("Missing FIREBASE_CLIENT_EMAIL or FIREBASE_PRIVATE_KEY.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+  const unsigned = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;
+  const signature = crypto.sign("RSA-SHA256", Buffer.from(unsigned), privateKey);
+  const assertion = `${unsigned}.${base64Url(signature)}`;
+  const data = await postJson(
+    "https://oauth2.googleapis.com/token",
+    new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion
+    }),
+    {
+      "Content-Type": "application/x-www-form-urlencoded"
+    }
+  );
+  return data.access_token;
+}
+
+function base64UrlJson(value) {
+  return base64Url(Buffer.from(JSON.stringify(value)));
+}
+
+function base64Url(buffer) {
+  return buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 function stripCodeFence(text) {
   return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 }
@@ -402,12 +518,16 @@ function getConnection(providerId) {
 function ensureStore() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(STORE_PATH)) {
-    writeStore({ oauthStates: {}, connections: {} });
+    writeStore({ oauthStates: {}, connections: {}, pushTokens: [] });
   }
 }
 
 function readStore() {
-  return JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+  const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+  store.oauthStates ||= {};
+  store.connections ||= {};
+  store.pushTokens ||= [];
+  return store;
 }
 
 function writeStore(store) {

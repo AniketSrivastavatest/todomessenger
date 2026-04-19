@@ -2,10 +2,13 @@ package com.todomessenger.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.ValueCallback;
@@ -16,13 +19,17 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://todomessenger26.netlify.app/";
     private static final int FILE_CHOOSER_REQUEST = 1001;
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
 
     private WebView webView;
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> filePathCallback;
+    private String pendingFcmToken;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -50,6 +57,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
+                deliverFcmTokenToWeb();
             }
 
             @Override
@@ -88,6 +96,9 @@ public class MainActivity extends Activity {
         } else {
             webView.restoreState(savedInstanceState);
         }
+
+        requestNotificationPermissionIfNeeded();
+        loadFcmToken();
     }
 
     @Override
@@ -119,5 +130,40 @@ public class MainActivity extends Activity {
     private void openExternal(Uri uri) {
         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
         startActivity(intent);
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, NOTIFICATION_PERMISSION_REQUEST);
+    }
+
+    private void loadFcmToken() {
+        try {
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener((task) -> {
+                if (!task.isSuccessful()) {
+                    return;
+                }
+                pendingFcmToken = task.getResult();
+                deliverFcmTokenToWeb();
+            });
+        } catch (IllegalStateException ignored) {
+            // Firebase is inactive until google-services.json is added for this app.
+        }
+    }
+
+    private void deliverFcmTokenToWeb() {
+        if (pendingFcmToken == null || webView == null) {
+            return;
+        }
+        String escapedToken = pendingFcmToken.replace("\\", "\\\\").replace("'", "\\'");
+        webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('todomessenger:fcmToken',{detail:{token:'" + escapedToken + "',platform:'android'}}));",
+                null
+        );
     }
 }

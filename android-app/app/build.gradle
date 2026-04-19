@@ -4,6 +4,10 @@ plugins {
     id "com.android.application"
 }
 
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
@@ -51,4 +55,10 @@ android {
             }
         }
     }
+}
+
+dependencies {
+    implementation "androidx.core:core:1.13.1"
+    implementation platform("com.google.firebase:firebase-bom:33.13.0")
+    implementation "com.google.firebase:firebase-messaging"
 }

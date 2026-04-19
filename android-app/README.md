@@ -50,6 +50,26 @@ The upload file will be created at:
 android-app/app/build/outputs/bundle/release/app-release.aab
 ```
 
+## Firebase Cloud Messaging
+
+1. Open Firebase Console and create or select a project.
+2. Add an Android app with package name:
+
+```text
+com.todomessenger.app
+```
+
+3. Download `google-services.json`.
+4. Place it here:
+
+```text
+android-app/app/google-services.json
+```
+
+5. Sync Gradle in Android Studio and rebuild.
+
+The file is ignored by Git because it is environment-specific. After Firebase is configured, the native app asks for notification permission, receives an FCM token, and passes it into the TodoMessenger WebView so the backend can register the device.
+
 ## Notes
 
 - This is a WebView app, so it uses the deployed Netlify frontend and Render backend.

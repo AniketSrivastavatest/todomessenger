@@ -8,6 +8,8 @@ TodoMessenger is a messaging and task management app that helps users chat, crea
 
 TodoMessenger may process account details, chat messages, tasks, assignees, invite links, and app usage information needed to provide the service.
 
+TodoMessenger may also process device push notification tokens to deliver reminders and message-related notifications.
+
 ## AI Features
 
 When a user asks Blu for AI help, such as using `@blu` or asking the app to suggest tasks, selected chat or task context may be sent to the TodoMessenger backend and then to an AI provider to generate a response.
@@ -23,6 +25,8 @@ The Android app loads the TodoMessenger web app in a WebView. Some app data may 
 ## Third-Party Services
 
 TodoMessenger may connect to services such as OpenAI, Asana, Jira, Netlify, and Render to provide AI, integration, hosting, and backend features.
+
+TodoMessenger may use Firebase Cloud Messaging to deliver push notifications to Android devices.
 
 ## User Choices
 
