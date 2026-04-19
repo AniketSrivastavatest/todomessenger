@@ -634,6 +634,70 @@ select:focus {
   overflow-wrap: anywhere;
 }
 
+.attachment-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.attachment-card {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 52px minmax(0, 1fr);
+  padding: 8px;
+}
+
+.message.them .attachment-card {
+  background: var(--wash);
+}
+
+.attachment-card img,
+.attachment-file-icon {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  height: 52px;
+  width: 52px;
+}
+
+.attachment-card img {
+  object-fit: cover;
+}
+
+.attachment-file-icon {
+  align-items: center;
+  background: var(--green-dark);
+  color: white;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.attachment-card strong,
+.attachment-card span,
+.attachment-card a {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.attachment-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+.attachment-card a {
+  color: var(--green-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin-top: 4px;
+  text-decoration: none;
+}
+
 .message .meta {
   display: block;
   text-align: right;
@@ -662,12 +726,28 @@ select:focus {
   border-top: 1px solid var(--line);
   display: grid;
   gap: 10px;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   padding: 14px 18px;
 }
 
-.attach {
-  background: var(--magenta);
+.attach-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1.25rem;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.attach-button:hover,
+.attach-button:focus-visible {
+  background: var(--wash);
+  color: var(--green-dark);
 }
 
 .task-header select {
@@ -1091,7 +1171,7 @@ textarea {
   }
 
   .composer {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto auto 1fr;
   }
 
   .send-button {

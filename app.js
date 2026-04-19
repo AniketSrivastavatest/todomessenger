@@ -1,4 +1,5 @@
 const todayIso = new Date().toISOString().slice(0, 10);
+const maxInlineAttachmentBytes = 2_000_000;
 
 const seedState = {
   activeId: "launch",
@@ -64,6 +65,8 @@ const els = {
   activeAvatar: document.querySelector("#activeAvatar"),
   activeName: document.querySelector("#activeName"),
   activeStatus: document.querySelector("#activeStatus"),
+  attachButton: document.querySelector("#attachButton"),
+  attachmentInput: document.querySelector("#attachmentInput"),
   backToChatsButton: document.querySelector("#backToChatsButton"),
   cancelNewChat: document.querySelector("#cancelNewChat"),
   cancelQuickTask: document.querySelector("#cancelQuickTask"),
@@ -285,6 +288,14 @@ els.showPinnedTasks.addEventListener("click", () => {
   setView("home");
   switchTab("tasks");
   renderTasks();
+});
+
+els.attachButton.addEventListener("click", () => els.attachmentInput.click());
+els.attachmentInput.addEventListener("change", async () => {
+  const files = Array.from(els.attachmentInput.files || []);
+  els.attachmentInput.value = "";
+  if (!files.length) return;
+  await addAttachmentMessage(files);
 });
 
 els.messageForm.addEventListener("submit", async (event) => {
@@ -523,7 +534,8 @@ function renderConversations() {
   els.conversationList.innerHTML = "";
   matching.forEach((conversation) => {
     const openCount = state.tasks.filter((task) => task.conversationId === conversation.id && !task.done).length;
-    const latest = conversation.messages.at(-1)?.text || "No messages yet";
+    const latestMessage = conversation.messages.at(-1);
+    const latest = latestMessage?.text || latestMessage?.preview || "Encrypted message";
     const button = document.createElement("button");
     button.className = `conversation-item ${conversation.id === state.activeId ? "active" : ""}`;
     button.type = "button";
@@ -570,6 +582,7 @@ async function renderActiveChat() {
     bubble.className = `message ${message.sender}`;
     bubble.innerHTML = `
       <p>${escapeHtml(message.displayText)}</p>
+      ${renderMessageAttachments(message.attachments)}
       <footer class="message-footer">
         <button class="message-task-button" type="button">Add task</button>
         <span class="meta">${escapeHtml(message.time)}</span>
@@ -581,6 +594,38 @@ async function renderActiveChat() {
     els.messageStream.append(bubble);
   });
   els.messageStream.scrollTop = els.messageStream.scrollHeight;
+}
+
+function renderMessageAttachments(attachments = []) {
+  if (!attachments.length) return "";
+  return `
+    <div class="attachment-list">
+      ${attachments.map((attachment) => {
+        const isImage = attachment.type.startsWith("image/") && attachment.dataUrl;
+        const fileLink = attachment.dataUrl
+          ? `<a href="${attachment.dataUrl}" download="${escapeHtml(attachment.name)}">Open</a>`
+          : `<span>Stored on this device</span>`;
+        return `
+          <article class="attachment-card">
+            ${isImage ? `<img src="${attachment.dataUrl}" alt="${escapeHtml(attachment.name)}">` : `<span class="attachment-file-icon">${getAttachmentIcon(attachment.type)}</span>`}
+            <div>
+              <strong>${escapeHtml(attachment.name)}</strong>
+              <span>${escapeHtml(formatFileSize(attachment.size))} ${escapeHtml(attachment.type || "file")}</span>
+              ${fileLink}
+            </div>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function getAttachmentIcon(type = "") {
+  if (type.includes("pdf")) return "PDF";
+  if (type.startsWith("image/")) return "IMG";
+  if (type.startsWith("video/")) return "VID";
+  if (type.startsWith("audio/")) return "AUD";
+  return "DOC";
 }
 
 function openQuickTaskDialog(prefill = "", source = "current chat") {
@@ -908,15 +953,50 @@ function renderTasks() {
   });
 }
 
-async function addMessage(text, sender = "me") {
+async function addMessage(text, sender = "me", extra = {}) {
   getActiveConversation().messages.push({
     id: createId("m"),
     sender,
+    preview: text,
     encrypted: await encryptText(text),
-    time: formatTime()
+    time: formatTime(),
+    ...extra
   });
   saveState();
   render();
+}
+
+async function addAttachmentMessage(files) {
+  const attachments = await Promise.all(files.map(createAttachment));
+  const fileCount = attachments.length;
+  const fileNames = attachments.map((attachment) => attachment.name).join(", ");
+  const label = fileCount === 1 ? `Attached ${fileNames}` : `Attached ${fileCount} files: ${fileNames}`;
+  await addMessage(label, "me", { attachments });
+}
+
+function createAttachment(file) {
+  return new Promise((resolve) => {
+    const attachment = {
+      id: createId("att"),
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: file.size,
+      dataUrl: ""
+    };
+
+    if (file.size > maxInlineAttachmentBytes) {
+      resolve(attachment);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      attachment.dataUrl = reader.result;
+      resolve(attachment);
+    });
+    reader.addEventListener("error", () => resolve(attachment));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function addSystemMessage(text) {
@@ -980,8 +1060,14 @@ function formatDate(value) {
   return new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
+function formatFileSize(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => {
+  return String(value).replace(/[&<>"']/g, (char) => {
     const entities = {
       "&": "&amp;",
       "<": "&lt;",
