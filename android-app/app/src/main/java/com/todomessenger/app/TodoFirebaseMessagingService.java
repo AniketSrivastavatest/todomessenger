@@ -12,8 +12,14 @@ import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+
 public class TodoFirebaseMessagingService extends FirebaseMessagingService {
     private static final String CHANNEL_ID = "task_reminders";
+    private static final String BACKEND_URL = "https://todomessenger-backend.onrender.com";
 
     @Override
     public void onMessageReceived(RemoteMessage message) {
@@ -42,6 +48,7 @@ public class TodoFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onNewToken(String token) {
         super.onNewToken(token);
+        registerFcmTokenWithBackend(token);
     }
 
     private void showNotification(String title, String body) {
@@ -79,5 +86,44 @@ public class TodoFirebaseMessagingService extends FirebaseMessagingService {
                 NotificationManager.IMPORTANCE_HIGH
         );
         manager.createNotificationChannel(channel);
+    }
+
+    private void registerFcmTokenWithBackend(String token) {
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(BACKEND_URL + "/api/push/register");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                connection.setDoOutput(true);
+
+                String payload = "{"
+                        + "\"token\":\"" + escapeJson(token) + "\","
+                        + "\"platform\":\"android\","
+                        + "\"userId\":\"android-device\""
+                        + "}";
+                try (OutputStream outputStream = connection.getOutputStream()) {
+                    outputStream.write(payload.getBytes(StandardCharsets.UTF_8));
+                }
+                connection.getResponseCode();
+            } catch (Exception ignored) {
+                // Token registration is retried when Firebase refreshes the token or the app opens.
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    private String escapeJson(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
     }
 }

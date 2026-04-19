@@ -68,7 +68,7 @@ android-app/app/google-services.json
 
 5. Sync Gradle in Android Studio and rebuild.
 
-The file is ignored by Git because it is environment-specific. After Firebase is configured, the native app asks for notification permission, receives an FCM token, and passes it into the TodoMessenger WebView so the backend can register the device.
+The file is ignored by Git because it is environment-specific. After Firebase is configured, the native app asks for notification permission, receives an FCM token, registers it directly with the Render backend, and also passes it into the TodoMessenger WebView for the web UI.
 
 ## Notes
 

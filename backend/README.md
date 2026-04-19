@@ -77,7 +77,7 @@ FIREBASE_PRIVATE_KEY=
 
 The private key should keep newline characters as `\n` if your host stores it on one line.
 
-The Android app sends its FCM token to:
+The native Android app sends its FCM token directly to:
 
 ```text
 POST /api/push/register

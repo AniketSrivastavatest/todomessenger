@@ -21,8 +21,14 @@ import android.widget.ProgressBar;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://todomessenger26.netlify.app/";
+    private static final String BACKEND_URL = "https://todomessenger-backend.onrender.com";
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
 
@@ -149,6 +155,7 @@ public class MainActivity extends Activity {
                     return;
                 }
                 pendingFcmToken = task.getResult();
+                registerFcmTokenWithBackend(pendingFcmToken);
                 deliverFcmTokenToWeb();
             });
         } catch (IllegalStateException ignored) {
@@ -165,5 +172,44 @@ public class MainActivity extends Activity {
                 "window.dispatchEvent(new CustomEvent('todomessenger:fcmToken',{detail:{token:'" + escapedToken + "',platform:'android'}}));",
                 null
         );
+    }
+
+    private void registerFcmTokenWithBackend(String token) {
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(BACKEND_URL + "/api/push/register");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                connection.setDoOutput(true);
+
+                String payload = "{"
+                        + "\"token\":\"" + escapeJson(token) + "\","
+                        + "\"platform\":\"android\","
+                        + "\"userId\":\"android-device\""
+                        + "}";
+                try (OutputStream outputStream = connection.getOutputStream()) {
+                    outputStream.write(payload.getBytes(StandardCharsets.UTF_8));
+                }
+                connection.getResponseCode();
+            } catch (Exception ignored) {
+                // Token registration is retried on the next app launch or token refresh.
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    private String escapeJson(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
     }
 }
