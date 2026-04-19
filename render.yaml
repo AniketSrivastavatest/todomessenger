@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: todomessenger-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run backend
+    envVars:
+      - key: PUBLIC_BACKEND_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        value: https://todomesseneger26.netlify.app
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini
+      - key: ASANA_CLIENT_ID
+        sync: false
+      - key: ASANA_CLIENT_SECRET
+        sync: false
+      - key: ASANA_REDIRECT_URI
+        sync: false
+      - key: ASANA_WORKSPACE_GID
+        sync: false
+      - key: JIRA_CLIENT_ID
+        sync: false
+      - key: JIRA_CLIENT_SECRET
+        sync: false
+      - key: JIRA_REDIRECT_URI
+        sync: false
+      - key: JIRA_CLOUD_ID
+        sync: false
+      - key: JIRA_PROJECT_KEY
+        sync: false

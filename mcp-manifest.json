@@ -1,0 +1,77 @@
+{
+  "protocol": "mcp",
+  "name": "TodoMessenger",
+  "description": "Connect TodoMessenger messages and tasks to phone apps through MCP-compatible tools.",
+  "transports": [
+    "todomessenger://mcp",
+    "https://todomessenger.example/mcp"
+  ],
+  "tools": [
+    {
+      "name": "create_task",
+      "description": "Create a task from a chat message, contact, or connected phone app.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "conversationId": { "type": "string" },
+          "due": { "type": "string", "format": "date" },
+          "priority": { "type": "string", "enum": ["low", "normal", "high"] }
+        }
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a message to an existing TodoMessenger conversation.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["conversationId", "text"],
+        "properties": {
+          "conversationId": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "read_open_tasks",
+      "description": "Read open tasks for the signed-in TodoMessenger account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "conversationId": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "create_asana_task",
+      "description": "Create an Asana task from a TodoMessenger task or chat message.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "notes": { "type": "string" },
+          "due": { "type": "string", "format": "date" },
+          "workspace": { "type": "string" },
+          "project": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "create_jira_issue",
+      "description": "Create a Jira issue from a TodoMessenger task or chat message.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "notes": { "type": "string" },
+          "cloudId": { "type": "string" },
+          "projectKey": { "type": "string" },
+          "issueType": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

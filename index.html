@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TodoMessenger</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <section class="registration-screen" id="registrationScreen" aria-label="Registration">
+      <div class="registration-phone">
+        <div class="phone-top"></div>
+        <div class="phone-body">
+          <header class="registration-header">
+            <p class="eyebrow">TodoMessenger</p>
+            <h1 id="registrationTitle">Enter your phone number</h1>
+            <p id="registrationCopy">TodoMessenger will need to verify your phone number before opening your chats and tasks.</p>
+          </header>
+
+          <ol class="registration-steps" aria-label="Registration progress">
+            <li class="active" data-step-dot="phone">Phone</li>
+            <li data-step-dot="verify">Verify</li>
+            <li data-step-dot="profile">Profile</li>
+          </ol>
+
+          <form class="registration-form active" id="phoneForm">
+            <label for="countryCode">Country</label>
+            <select id="countryCode">
+              <option value="+33">France (+33)</option>
+              <option value="+1">United States (+1)</option>
+              <option value="+44">United Kingdom (+44)</option>
+              <option value="+234">Nigeria (+234)</option>
+              <option value="+91">India (+91)</option>
+            </select>
+
+            <label for="phoneNumber">Phone number</label>
+            <input id="phoneNumber" inputmode="tel" autocomplete="tel" required placeholder="6 12 34 56 78">
+            <p class="helper-text">Carrier SMS is not sent in this prototype. A demo code appears on the next screen.</p>
+
+            <button class="primary-button" type="submit">Next</button>
+          </form>
+
+          <form class="registration-form" id="verifyForm">
+            <p class="verify-target" id="verifyTarget"></p>
+            <label for="verificationCode">6-digit code</label>
+            <input id="verificationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
+            <p class="helper-text" id="demoCodeText"></p>
+            <button class="primary-button" type="submit">Verify</button>
+            <button class="text-button" id="editPhoneButton" type="button">Edit number</button>
+          </form>
+
+          <form class="registration-form" id="profileForm">
+            <label for="profileName">Your name</label>
+            <input id="profileName" autocomplete="name" required placeholder="Your display name">
+
+            <label for="profileAbout">About</label>
+            <input id="profileAbout" placeholder="Available">
+
+            <button class="primary-button" type="submit">Start messaging</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <main class="app-shell" id="appShell">
+      <aside class="sidebar" aria-label="Conversations">
+        <header class="brand-row">
+          <h1>TodoMessenger</h1>
+          <button class="icon-button" id="newChatButton" type="button" aria-label="Start a new chat">+</button>
+        </header>
+
+        <nav class="app-tabs" aria-label="Main sections">
+          <button class="tab-button active" id="chatsTabButton" type="button">Chats</button>
+          <button class="tab-button" id="tasksTabButton" type="button">Tasks</button>
+        </nav>
+
+        <section class="tab-view active" id="chatsTabView" aria-label="Chats tab">
+          <label class="search-box" for="chatSearch">
+            <span>Search</span>
+            <input id="chatSearch" type="search" placeholder="Search or start a new chat">
+          </label>
+
+          <nav class="conversation-list" id="conversationList" aria-label="Conversation list"></nav>
+        </section>
+
+        <section class="tab-view tasks-tab-view" id="tasksTabView" aria-label="Tasks tab">
+          <header class="task-header">
+            <div>
+              <p class="eyebrow">To-Do</p>
+              <h2>Tasks</h2>
+            </div>
+            <select id="taskFilter" aria-label="Filter tasks">
+              <option value="open">Open</option>
+              <option value="today">Due today</option>
+              <option value="all">All</option>
+              <option value="done">Done</option>
+            </select>
+          </header>
+
+          <section class="quick-stats" aria-label="Task summary">
+            <div>
+              <strong id="openTaskCount">0</strong>
+              <span>open tasks</span>
+            </div>
+            <div>
+              <strong id="dueTodayCount">0</strong>
+              <span>due today</span>
+            </div>
+          </section>
+
+          <form class="task-form" id="taskForm">
+            <label for="taskTitle">Task</label>
+            <input id="taskTitle" required placeholder="Add a task for this chat">
+
+            <div class="form-grid">
+              <label for="taskDue">
+                Due
+                <input id="taskDue" type="date">
+              </label>
+              <label for="taskPriority">
+                Priority
+                <select id="taskPriority">
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+
+            <button class="primary-button" type="submit">Add task</button>
+          </form>
+
+          <div class="task-list" id="taskList"></div>
+        </section>
+      </aside>
+
+      <section class="chat-panel" aria-label="Active chat">
+        <header class="chat-header">
+          <button class="back-button" id="backToChatsButton" type="button" aria-label="Back to chats">‹</button>
+          <div class="chat-person">
+            <img id="activeAvatar" src="" alt="">
+            <div>
+              <h2 id="activeName"></h2>
+              <p id="activeStatus"></p>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <button class="chat-icon-button" id="voiceCallButton" type="button" aria-label="Voice call">☎</button>
+            <button class="chat-icon-button" id="videoCallButton" type="button" aria-label="Video call">▣</button>
+            <div class="more-menu">
+              <button class="chat-icon-button" id="moreButton" type="button" aria-label="More options">⋮</button>
+              <div class="more-menu-panel" id="moreMenuPanel" hidden>
+                <button id="showPinnedTasks" type="button">Tasks</button>
+                <button id="inviteButton" type="button">Invite contact</button>
+                <button id="mcpButton" type="button">Connected apps</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="message-stream" id="messageStream" aria-live="polite"></div>
+
+        <form class="composer" id="messageForm">
+          <button class="task-compose-button" type="button" id="quickTaskButton">Task</button>
+          <label class="sr-only" for="messageInput">Message</label>
+          <input id="messageInput" autocomplete="off" placeholder="Message, /todo, or @chatgpt ask anything">
+          <button class="send-button" type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <dialog id="newChatDialog">
+      <form method="dialog" class="dialog-card" id="newChatForm">
+        <header>
+          <h2>New chat</h2>
+          <button class="icon-button" value="cancel" aria-label="Close">x</button>
+        </header>
+        <label for="newChatName">Name</label>
+        <input id="newChatName" required placeholder="Alex, Design team, Family">
+        <label for="newChatStatus">Status</label>
+        <input id="newChatStatus" placeholder="online, planning launch, away">
+        <menu>
+          <button class="ghost-button" value="cancel" type="button" id="cancelNewChat">Cancel</button>
+          <button class="primary-button" value="default" type="submit">Create chat</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="quickTaskDialog">
+      <form method="dialog" class="dialog-card" id="quickTaskForm">
+        <header>
+          <h2>Add task from chat</h2>
+          <button class="icon-button" id="closeQuickTaskDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <label for="quickTaskTitle">Task</label>
+        <input id="quickTaskTitle" required placeholder="Follow up on this message">
+        <div class="form-grid">
+          <label for="quickTaskDue">
+            Due
+            <input id="quickTaskDue" type="date">
+          </label>
+          <label for="quickTaskPriority">
+            Priority
+            <select id="quickTaskPriority">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+        </div>
+        <p class="helper-text" id="quickTaskSource">Task will be linked to the active chat.</p>
+        <menu>
+          <button class="ghost-button" value="cancel" type="button" id="cancelQuickTask">Cancel</button>
+          <button class="primary-button" value="default" type="submit">Add task</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="inviteDialog">
+      <section class="dialog-card">
+        <header>
+          <h2>Invite people</h2>
+          <button class="icon-button" id="closeInviteDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text">Share your TodoMessenger link so friends can join you on phone or web.</p>
+        <label for="inviteLink">Your invite link</label>
+        <input id="inviteLink" readonly>
+        <div class="share-grid">
+          <button class="primary-button" id="nativeShareButton" type="button">Share on phone</button>
+          <button class="ghost-button" id="copyInviteButton" type="button">Copy link</button>
+          <a class="share-button whatsapp" id="whatsappShareLink" target="_blank" rel="noreferrer">WhatsApp</a>
+          <a class="share-button instagram" id="instagramShareLink" target="_blank" rel="noreferrer">Instagram</a>
+          <a class="share-button sms" id="smsShareLink">SMS</a>
+          <a class="share-button email" id="emailShareLink">Email</a>
+        </div>
+        <p class="helper-text" id="shareStatus">Instagram web does not accept pre-filled link text, so copy the link before opening it.</p>
+      </section>
+    </dialog>
+
+    <dialog id="mcpDialog">
+      <section class="dialog-card wide-dialog">
+        <header>
+          <div>
+            <p class="eyebrow">MCP Connections</p>
+            <h2>Connect phone apps</h2>
+          </div>
+          <button class="icon-button" id="closeMcpDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text">This prototype includes an MCP-style connection registry. A real mobile build would expose these tools through a secure local or cloud MCP server.</p>
+
+        <div class="mcp-layout">
+          <section>
+            <h3>Available apps</h3>
+            <div class="connected-apps" id="connectedApps"></div>
+          </section>
+
+          <form class="mcp-form" id="customMcpForm">
+            <h3>Custom connector</h3>
+            <label for="mcpAppName">App name</label>
+            <input id="mcpAppName" required placeholder="Calendar, Notes, CRM">
+            <label for="mcpEndpoint">MCP endpoint</label>
+            <input id="mcpEndpoint" required placeholder="todomessenger://mcp/calendar or https://...">
+            <button class="primary-button" type="submit">Add connector</button>
+          </form>
+        </div>
+
+        <label for="mcpManifest">MCP manifest preview</label>
+        <textarea id="mcpManifest" readonly rows="10"></textarea>
+      </section>
+    </dialog>
+
+    <script src="app-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
