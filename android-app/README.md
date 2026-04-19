@@ -16,7 +16,7 @@ https://todomessenger26.netlify.app/
 4. Select a device or emulator.
 5. Click Run.
 
-## Build APK
+## Build Debug APK
 
 In Android Studio:
 
@@ -30,9 +30,30 @@ The APK will be created under:
 android-app/app/build/outputs/apk/
 ```
 
+## Build Play Store App Bundle
+
+Create a private release keystore:
+
+```powershell
+keytool -genkeypair -v -storetype PKCS12 -keystore todomessenger-release.jks -alias todomessenger -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Copy `keystore.properties.example` to `keystore.properties` and fill in the real passwords. Then build the Play Store bundle:
+
+```powershell
+.\gradlew.bat :app:bundleRelease
+```
+
+The upload file will be created at:
+
+```text
+android-app/app/build/outputs/bundle/release/app-release.aab
+```
+
 ## Notes
 
 - This is a WebView app, so it uses the deployed Netlify frontend and Render backend.
 - JavaScript and localStorage are enabled.
 - Non-web links, such as `mailto:`, `sms:`, and custom URL schemes, open externally.
-- For Play Store release, create a signed release build in Android Studio.
+- The release build uses code shrinking and resource shrinking.
+- See `PLAY_STORE_CHECKLIST.md` before uploading to Google Play.
