@@ -41,6 +41,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - Invite sharing through native phone sharing, WhatsApp, Instagram, SMS, email, and copy link.
 - MCP-style connected app registry with a manifest preview.
 - Backend scaffold for Asana/Jira OAuth and task/issue sync.
+- Android WebView app source under `android-app/`.
 - Per-chat tasks with due dates, priority, completion, deletion, and filters.
 - `/todo` shortcut in the composer, for example `/todo Send invoice by Friday`.
 - Local persistence with `localStorage`.

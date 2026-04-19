@@ -3,3 +3,7 @@ backend/data/
 node_modules/
 *.log
 *.zip
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
