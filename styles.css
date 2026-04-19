@@ -378,7 +378,7 @@ select:focus {
 .quick-stats {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 0 22px 14px;
 }
 
@@ -399,6 +399,28 @@ select:focus {
   display: block;
   font-size: 0.78rem;
   margin-top: 2px;
+}
+
+.notification-panel {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 22px;
+}
+
+.notification-panel strong,
+.notification-panel span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.notification-panel span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-top: 3px;
 }
 
 .conversation-list {
@@ -872,6 +894,11 @@ select:focus {
   padding: 5px 8px;
 }
 
+.reminder-pill {
+  background: #fff7d6;
+  color: #6f5b16;
+}
+
 .delete-button {
   background: transparent;
   border: 0;
@@ -932,6 +959,11 @@ dialog::backdrop {
 .contact-popup {
   justify-items: stretch;
   text-align: left;
+}
+
+.reminder-popup {
+  justify-items: stretch;
+  min-width: min(420px, calc(100vw - 36px));
 }
 
 .popup-hero {
@@ -1155,6 +1187,11 @@ textarea {
   .task-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .quick-stats,
+  .notification-panel {
+    grid-template-columns: 1fr;
   }
 
   .task-header select {

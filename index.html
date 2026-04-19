@@ -106,6 +106,18 @@
               <strong id="dueTodayCount">0</strong>
               <span>due today</span>
             </div>
+            <div>
+              <strong id="reminderCount">0</strong>
+              <span>reminders</span>
+            </div>
+          </section>
+
+          <section class="notification-panel">
+            <div>
+              <strong>Task reminders</strong>
+              <span id="notificationStatus">Notifications are off.</span>
+            </div>
+            <button class="ghost-button" id="notificationButton" type="button">Enable notifications</button>
           </section>
 
           <form class="task-form" id="taskForm">
@@ -129,6 +141,8 @@
                 </select>
               </label>
             </div>
+            <label for="taskReminderAt">Reminder</label>
+            <input id="taskReminderAt" type="datetime-local">
 
             <button class="primary-button" type="submit">Add task</button>
           </form>
@@ -221,12 +235,31 @@
             </select>
           </label>
         </div>
+        <label for="quickTaskReminderAt">Reminder</label>
+        <input id="quickTaskReminderAt" type="datetime-local">
         <p class="helper-text" id="quickTaskSource">Task will be linked to the active chat.</p>
         <menu>
           <button class="ghost-button" value="cancel" type="button" id="cancelQuickTask">Cancel</button>
           <button class="primary-button" value="default" type="submit">Add task</button>
         </menu>
       </form>
+    </dialog>
+
+    <dialog id="reminderDialog">
+      <section class="dialog-card reminder-popup">
+        <div class="popup-hero" aria-hidden="true">&#128276;</div>
+        <header>
+          <div>
+            <p class="eyebrow">Reminder</p>
+            <h2 id="reminderTitle">Task reminder</h2>
+          </div>
+        </header>
+        <p class="helper-text" id="reminderMeta">A task needs your attention.</p>
+        <menu>
+          <button class="ghost-button" id="dismissReminderButton" type="button">Dismiss</button>
+          <button class="primary-button" id="openReminderChatButton" type="button">Open chat</button>
+        </menu>
+      </section>
     </dialog>
 
     <dialog id="inviteDialog">

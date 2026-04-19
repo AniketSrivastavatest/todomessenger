@@ -60,6 +60,7 @@ const seedState = {
 let state = loadState();
 let currentView = "home";
 let encryptionKey;
+let activeReminderTaskId = "";
 
 const els = {
   activeAvatar: document.querySelector("#activeAvatar"),
@@ -108,6 +109,8 @@ const els = {
   newChatForm: document.querySelector("#newChatForm"),
   newChatName: document.querySelector("#newChatName"),
   newChatStatus: document.querySelector("#newChatStatus"),
+  notificationButton: document.querySelector("#notificationButton"),
+  notificationStatus: document.querySelector("#notificationStatus"),
   openTaskCount: document.querySelector("#openTaskCount"),
   phoneForm: document.querySelector("#phoneForm"),
   phoneNumber: document.querySelector("#phoneNumber"),
@@ -120,11 +123,16 @@ const els = {
   quickTaskDue: document.querySelector("#quickTaskDue"),
   quickTaskForm: document.querySelector("#quickTaskForm"),
   quickTaskPriority: document.querySelector("#quickTaskPriority"),
+  quickTaskReminderAt: document.querySelector("#quickTaskReminderAt"),
   quickTaskSource: document.querySelector("#quickTaskSource"),
   quickTaskTitle: document.querySelector("#quickTaskTitle"),
   registrationCopy: document.querySelector("#registrationCopy"),
   registrationScreen: document.querySelector("#registrationScreen"),
   registrationTitle: document.querySelector("#registrationTitle"),
+  reminderCount: document.querySelector("#reminderCount"),
+  reminderDialog: document.querySelector("#reminderDialog"),
+  reminderMeta: document.querySelector("#reminderMeta"),
+  reminderTitle: document.querySelector("#reminderTitle"),
   shareStatus: document.querySelector("#shareStatus"),
   showPinnedTasks: document.querySelector("#showPinnedTasks"),
   skipContactSyncButton: document.querySelector("#skipContactSyncButton"),
@@ -137,6 +145,7 @@ const els = {
   taskForm: document.querySelector("#taskForm"),
   taskList: document.querySelector("#taskList"),
   taskPriority: document.querySelector("#taskPriority"),
+  taskReminderAt: document.querySelector("#taskReminderAt"),
   taskSuggestionList: document.querySelector("#taskSuggestionList"),
   taskTitle: document.querySelector("#taskTitle"),
   tasksTabButton: document.querySelector("#tasksTabButton"),
@@ -146,7 +155,9 @@ const els = {
   verifyTarget: document.querySelector("#verifyTarget"),
   videoCallButton: document.querySelector("#videoCallButton"),
   voiceCallButton: document.querySelector("#voiceCallButton"),
+  dismissReminderButton: document.querySelector("#dismissReminderButton"),
   nativeShareButton: document.querySelector("#nativeShareButton"),
+  openReminderChatButton: document.querySelector("#openReminderChatButton"),
   suggestTasksButton: document.querySelector("#suggestTasksButton"),
   whatsappShareLink: document.querySelector("#whatsappShareLink")
 };
@@ -240,10 +251,22 @@ els.quickTaskForm.addEventListener("submit", async (event) => {
   const title = els.quickTaskTitle.value.trim();
   if (!title) return;
 
-  addTask(title, els.quickTaskDue.value, els.quickTaskPriority.value, els.quickTaskAssignee.value);
+  addTask(title, els.quickTaskDue.value, els.quickTaskPriority.value, els.quickTaskAssignee.value, els.quickTaskReminderAt.value);
   await addMessage(`Task added from chat: ${title}`);
   els.quickTaskForm.reset();
   els.quickTaskDialog.close();
+});
+els.notificationButton.addEventListener("click", requestNotificationPermission);
+els.dismissReminderButton.addEventListener("click", () => els.reminderDialog.close());
+els.openReminderChatButton.addEventListener("click", () => {
+  const task = state.tasks.find((item) => item.id === activeReminderTaskId);
+  if (task) {
+    state.activeId = task.conversationId;
+    currentView = "chat";
+    saveState();
+    render();
+  }
+  els.reminderDialog.close();
 });
 
 els.inviteButton.addEventListener("click", openInviteDialog);
@@ -320,7 +343,7 @@ els.taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const title = els.taskTitle.value.trim();
   if (!title) return;
-  addTask(title, els.taskDue.value, els.taskPriority.value, els.taskAssignee.value);
+  addTask(title, els.taskDue.value, els.taskPriority.value, els.taskAssignee.value, els.taskReminderAt.value);
   await addMessage(`Task added: ${title}`);
   els.taskForm.reset();
 });
@@ -373,6 +396,9 @@ async function bootstrap() {
   await normalizeEncryptedMessages();
   saveState();
   render();
+  renderNotificationStatus();
+  checkReminders();
+  window.setInterval(checkReminders, 30000);
 }
 
 async function render() {
@@ -382,6 +408,7 @@ async function render() {
   renderView();
   renderConnectedApps();
   renderStats();
+  renderNotificationStatus();
   renderConversations();
   await renderActiveChat();
   renderTasks();
@@ -422,6 +449,8 @@ function normalizeTasks() {
   state.tasks ||= [];
   state.tasks.forEach((task) => {
     task.assignee ||= "Me";
+    task.reminderAt ||= "";
+    task.remindedAt ||= "";
   });
 }
 
@@ -519,6 +548,7 @@ function renderStats() {
   const openTasks = state.tasks.filter((task) => !task.done);
   els.openTaskCount.textContent = openTasks.length;
   els.dueTodayCount.textContent = openTasks.filter((task) => task.due === todayIso).length;
+  els.reminderCount.textContent = openTasks.filter((task) => task.reminderAt && !task.remindedAt).length;
 }
 
 function renderConversations() {
@@ -934,6 +964,7 @@ function renderTasks() {
         <span class="pill">${escapeHtml(getConversationName(task.conversationId))}</span>
         <span class="pill">Assigned to ${escapeHtml(task.assignee || "Me")}</span>
         <span class="pill">${task.due ? `Due ${formatDate(task.due)}` : "No due date"}</span>
+        ${task.reminderAt ? `<span class="pill reminder-pill">Remind ${escapeHtml(formatDateTime(task.reminderAt))}</span>` : ""}
         <span class="pill">${escapeHtml(task.priority)} priority</span>
         <button class="delete-button" type="button">Delete</button>
       </footer>
@@ -1003,7 +1034,7 @@ async function addSystemMessage(text) {
   await addMessage(text, "them");
 }
 
-function addTask(title, due, priority, assignee = "Me") {
+function addTask(title, due, priority, assignee = "Me", reminderAt = "") {
   if (!title) return;
   state.tasks.unshift({
     id: createId("t"),
@@ -1012,10 +1043,97 @@ function addTask(title, due, priority, assignee = "Me") {
     due,
     priority,
     assignee: assignee.trim() || "Me",
+    reminderAt,
+    remindedAt: "",
     done: false
   });
   saveState();
   render();
+}
+
+async function requestNotificationPermission() {
+  if (!("Notification" in window)) {
+    els.notificationStatus.textContent = "Browser notifications are not available here.";
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    renderNotificationStatus();
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  renderNotificationStatus();
+  if (permission === "granted") {
+    new Notification("TodoMessenger reminders are on", {
+      body: "Blu can now remind you when a task is due.",
+      tag: "todomessenger-reminders-on"
+    });
+  }
+}
+
+function renderNotificationStatus() {
+  if (!els.notificationStatus || !els.notificationButton) return;
+  if (!("Notification" in window)) {
+    els.notificationStatus.textContent = "Notifications are not supported in this browser.";
+    els.notificationButton.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    els.notificationStatus.textContent = "Notifications are enabled for task reminders.";
+    els.notificationButton.textContent = "Enabled";
+    els.notificationButton.disabled = true;
+  } else if (Notification.permission === "denied") {
+    els.notificationStatus.textContent = "Notifications are blocked. Enable them in browser settings.";
+    els.notificationButton.textContent = "Blocked";
+    els.notificationButton.disabled = true;
+  } else {
+    els.notificationStatus.textContent = "Enable notifications to get task reminders while TodoMessenger is open.";
+    els.notificationButton.textContent = "Enable notifications";
+    els.notificationButton.disabled = false;
+  }
+}
+
+function checkReminders() {
+  if (!isRegistered()) return;
+  const now = Date.now();
+  const dueTasks = state.tasks.filter((task) => (
+    !task.done &&
+    task.reminderAt &&
+    !task.remindedAt &&
+    new Date(task.reminderAt).getTime() <= now
+  ));
+
+  if (!dueTasks.length) return;
+  dueTasks.forEach((task) => {
+    task.remindedAt = new Date().toISOString();
+    notifyTaskReminder(task);
+  });
+  saveState();
+  renderStats();
+  renderTasks();
+}
+
+function notifyTaskReminder(task) {
+  const conversationName = getConversationName(task.conversationId);
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(`Reminder: ${task.title}`, {
+      body: `${conversationName} - assigned to ${task.assignee || "Me"}`,
+      tag: `task-${task.id}`
+    });
+  }
+
+  if (!els.reminderDialog.open) {
+    activeReminderTaskId = task.id;
+    els.reminderTitle.textContent = task.title;
+    els.reminderMeta.textContent = `${conversationName} - assigned to ${task.assignee || "Me"}`;
+    try {
+      els.reminderDialog.showModal();
+    } catch {
+      els.reminderDialog.show();
+    }
+  }
 }
 
 function getActiveConversation() {
@@ -1058,6 +1176,15 @@ function formatTime() {
 
 function formatDate(value) {
   return new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
 }
 
 function formatFileSize(bytes = 0) {
