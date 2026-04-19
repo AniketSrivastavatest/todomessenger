@@ -5,6 +5,7 @@ This is the first backend layer for TodoMessenger integrations.
 It adds:
 
 - OpenAI-powered `@chatgpt` backend endpoint.
+- OpenAI-powered task suggestion endpoint for recent chat context.
 - OAuth start/callback routes for Asana and Jira.
 - Local development token storage in `backend/data/store.json`.
 - API endpoints for creating an Asana task or Jira issue from a TodoMessenger task.
@@ -42,6 +43,7 @@ GET  /oauth/jira/start
 GET  /oauth/jira/callback
 GET  /api/integrations
 POST /api/ai/chatgpt
+POST /api/ai/suggest-tasks
 POST /api/sync/asana/task
 POST /api/sync/jira/issue
 ```

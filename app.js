@@ -126,6 +126,7 @@ const els = {
   taskForm: document.querySelector("#taskForm"),
   taskList: document.querySelector("#taskList"),
   taskPriority: document.querySelector("#taskPriority"),
+  taskSuggestionList: document.querySelector("#taskSuggestionList"),
   taskTitle: document.querySelector("#taskTitle"),
   tasksTabButton: document.querySelector("#tasksTabButton"),
   tasksTabView: document.querySelector("#tasksTabView"),
@@ -135,6 +136,7 @@ const els = {
   videoCallButton: document.querySelector("#videoCallButton"),
   voiceCallButton: document.querySelector("#voiceCallButton"),
   nativeShareButton: document.querySelector("#nativeShareButton"),
+  suggestTasksButton: document.querySelector("#suggestTasksButton"),
   whatsappShareLink: document.querySelector("#whatsappShareLink")
 };
 
@@ -204,6 +206,7 @@ els.chatSearch.addEventListener("input", renderConversations);
 els.taskFilter.addEventListener("change", renderTasks);
 els.chatsTabButton.addEventListener("click", () => switchTab("chats"));
 els.tasksTabButton.addEventListener("click", () => switchTab("tasks"));
+els.suggestTasksButton.addEventListener("click", suggestTasksFromChat);
 els.backToChatsButton.addEventListener("click", () => setView("home"));
 els.newChatButton.addEventListener("click", () => els.newChatDialog.showModal());
 els.cancelNewChat.addEventListener("click", () => els.newChatDialog.close());
@@ -679,6 +682,56 @@ async function answerWithChatGPT(prompt) {
 
   saveState();
   render();
+}
+
+async function suggestTasksFromChat() {
+  const conversation = getActiveConversation();
+  els.taskSuggestionList.innerHTML = `<p class="helper-text">Reading this chat and looking for useful tasks...</p>`;
+
+  try {
+    const response = await fetch(`${getBackendUrl()}/api/ai/suggest-tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationName: conversation.name,
+        context: await getRecentMessageContext(conversation)
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(formatApiError(data.error || data));
+    }
+    renderTaskSuggestions(data.tasks || []);
+  } catch (error) {
+    els.taskSuggestionList.innerHTML = `
+      <p class="helper-text">Could not suggest tasks yet. ${escapeHtml(formatApiError(error.message || error))}</p>
+    `;
+  }
+}
+
+function renderTaskSuggestions(tasks) {
+  els.taskSuggestionList.innerHTML = "";
+  if (!tasks.length) {
+    els.taskSuggestionList.innerHTML = `<p class="helper-text">No clear tasks found in the recent chat.</p>`;
+    return;
+  }
+
+  tasks.forEach((task) => {
+    const card = document.createElement("article");
+    card.className = "suggestion-card";
+    card.innerHTML = `
+      <div>
+        <strong>${escapeHtml(task.title || "Untitled task")}</strong>
+        <span>${escapeHtml(task.reason || "Suggested from recent messages")}</span>
+      </div>
+      <button class="primary-button" type="button">Add</button>
+    `;
+    card.querySelector("button").addEventListener("click", () => {
+      addTask(task.title || "Untitled task", task.due || "", task.priority || "normal");
+      card.remove();
+    });
+    els.taskSuggestionList.append(card);
+  });
 }
 
 async function getRecentMessageContext(conversation) {

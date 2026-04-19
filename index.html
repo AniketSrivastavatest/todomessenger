@@ -130,6 +130,12 @@
             <button class="primary-button" type="submit">Add task</button>
           </form>
 
+          <section class="ai-task-box" aria-label="AI task suggestions">
+            <button class="primary-button" id="suggestTasksButton" type="button">Suggest tasks from chat</button>
+            <p class="helper-text">AI reads recent messages from this chat only when you tap this button.</p>
+            <div class="suggestion-list" id="taskSuggestionList"></div>
+          </section>
+
           <div class="task-list" id="taskList"></div>
         </section>
       </aside>

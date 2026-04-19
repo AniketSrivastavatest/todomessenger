@@ -34,6 +34,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - Active chat screen with message history, back navigation, call/video/more actions, and a message composer.
 - Browser-side AES-GCM message encryption before messages are stored in local demo state.
 - `@chatgpt` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
+- AI task suggestions that read recent decrypted messages only after the user taps the suggestion button.
 - Separate Tasks tab for adding and managing to-dos without cluttering the chat screen.
 - Direct task creation from the composer or from any chat message.
 - Invite sharing through native phone sharing, WhatsApp, Instagram, SMS, email, and copy link.

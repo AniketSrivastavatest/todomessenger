@@ -73,6 +73,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/ai/suggest-tasks") {
+      const body = await readJson(req);
+      sendJson(res, 200, await suggestTasks(body));
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/sync/asana/task") {
       const body = await readJson(req);
       sendJson(res, 200, await createAsanaTask(body));
@@ -233,6 +239,50 @@ async function askChatGPT(body) {
     answer: extractResponseText(data),
     responseId: data.id
   };
+}
+
+async function suggestTasks(body) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY.");
+  }
+
+  const data = await postJson(
+    "https://api.openai.com/v1/responses",
+    JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
+      instructions:
+        "You extract actionable to-do tasks from a chat. Return only JSON with a tasks array. Each task must have title, priority, due, and reason. priority must be low, normal, or high. due should be an ISO date string or empty string. Keep titles short.",
+      input: `Conversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","priority":"normal","due":"","reason":"..."}]}.`,
+      max_output_tokens: 800
+    }),
+    {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  );
+
+  return normalizeSuggestedTasks(extractResponseText(data));
+}
+
+function normalizeSuggestedTasks(text) {
+  try {
+    const parsed = JSON.parse(stripCodeFence(text));
+    const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+    return {
+      tasks: tasks.slice(0, 6).map((task) => ({
+        title: String(task.title || "").slice(0, 120),
+        priority: ["low", "normal", "high"].includes(task.priority) ? task.priority : "normal",
+        due: typeof task.due === "string" ? task.due : "",
+        reason: String(task.reason || "Suggested from chat").slice(0, 160)
+      })).filter((task) => task.title)
+    };
+  } catch {
+    return { tasks: [] };
+  }
+}
+
+function stripCodeFence(text) {
+  return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 }
 
 function extractResponseText(response) {
