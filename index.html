@@ -84,76 +84,80 @@
         </section>
 
         <section class="tab-view tasks-tab-view" id="tasksTabView" aria-label="Tasks tab">
-          <header class="task-header">
-            <div>
-              <p class="eyebrow">To-Do</p>
-              <h2>Tasks</h2>
-            </div>
-            <select id="taskFilter" aria-label="Filter tasks">
-              <option value="open">Open</option>
-              <option value="today">Due today</option>
-              <option value="all">All</option>
-              <option value="done">Done</option>
-            </select>
-          </header>
+          <div class="task-fixed-pane">
+            <header class="task-header">
+              <div>
+                <p class="eyebrow">To-Do</p>
+                <h2>Tasks</h2>
+              </div>
+              <select id="taskFilter" aria-label="Filter tasks">
+                <option value="open">Open</option>
+                <option value="today">Due today</option>
+                <option value="all">All</option>
+                <option value="done">Done</option>
+              </select>
+            </header>
 
-          <section class="quick-stats" aria-label="Task summary">
-            <div>
-              <strong id="openTaskCount">0</strong>
-              <span>open tasks</span>
-            </div>
-            <div>
-              <strong id="dueTodayCount">0</strong>
-              <span>due today</span>
-            </div>
-            <div>
-              <strong id="reminderCount">0</strong>
-              <span>reminders</span>
-            </div>
-          </section>
+            <section class="quick-stats" aria-label="Task summary">
+              <div>
+                <strong id="openTaskCount">0</strong>
+                <span>open tasks</span>
+              </div>
+              <div>
+                <strong id="dueTodayCount">0</strong>
+                <span>due today</span>
+              </div>
+              <div>
+                <strong id="reminderCount">0</strong>
+                <span>reminders</span>
+              </div>
+            </section>
 
-          <section class="notification-panel">
-            <div>
-              <strong>Task reminders</strong>
-              <span id="notificationStatus">Notifications are off.</span>
-            </div>
-            <button class="ghost-button" id="notificationButton" type="button">Enable notifications</button>
-          </section>
+            <section class="notification-panel">
+              <div>
+                <strong>Task reminders</strong>
+                <span id="notificationStatus">Notifications are off.</span>
+              </div>
+              <button class="ghost-button" id="notificationButton" type="button">Enable notifications</button>
+            </section>
 
-          <form class="task-form" id="taskForm">
-            <label for="taskTitle">Task</label>
-            <input id="taskTitle" required placeholder="Add a task for this chat">
+            <form class="task-form" id="taskForm">
+              <label for="taskTitle">Task</label>
+              <input id="taskTitle" required placeholder="Add a task for this chat">
 
-            <label for="taskAssignee">Assign to</label>
-            <input id="taskAssignee" placeholder="Me, Alex, Design team">
+              <label for="taskAssignee">Assign to</label>
+              <input id="taskAssignee" placeholder="Me, Alex, Design team">
 
-            <div class="form-grid">
-              <label for="taskDue">
-                Due
-                <input id="taskDue" type="date">
-              </label>
-              <label for="taskPriority">
-                Priority
-                <select id="taskPriority">
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="low">Low</option>
-                </select>
-              </label>
-            </div>
-            <label for="taskReminderAt">Reminder</label>
-            <input id="taskReminderAt" type="datetime-local">
+              <div class="form-grid">
+                <label for="taskDue">
+                  Due
+                  <input id="taskDue" type="date">
+                </label>
+                <label for="taskPriority">
+                  Priority
+                  <select id="taskPriority">
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="low">Low</option>
+                  </select>
+                </label>
+              </div>
+              <label for="taskReminderAt">Reminder</label>
+              <input id="taskReminderAt" type="datetime-local">
 
-            <button class="primary-button" type="submit">Add task</button>
-          </form>
+              <button class="primary-button" type="submit">Add task</button>
+            </form>
 
-          <section class="ai-task-box" aria-label="AI task suggestions">
-            <button class="primary-button" id="suggestTasksButton" type="button">Suggest tasks from chat</button>
-            <p class="helper-text">AI reads recent messages from this chat only when you tap this button.</p>
-            <div class="suggestion-list" id="taskSuggestionList"></div>
-          </section>
+            <section class="ai-task-box" aria-label="AI task suggestions">
+              <button class="primary-button" id="suggestTasksButton" type="button">Suggest tasks from chat</button>
+              <p class="helper-text">AI reads recent messages from this chat only when you tap this button.</p>
+              <div class="suggestion-list" id="taskSuggestionList"></div>
+            </section>
+          </div>
 
-          <div class="task-list" id="taskList"></div>
+          <div class="task-queue-pane">
+            <div class="task-list" id="taskList"></div>
+          </div>
         </section>
       </aside>
 

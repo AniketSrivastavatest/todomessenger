@@ -346,7 +346,26 @@ h2 {
 }
 
 .tasks-tab-view {
-  max-height: calc(100vh - 210px);
+  display: none;
+  height: calc(100vh - 210px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tasks-tab-view.active {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.task-fixed-pane {
+  background: white;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+}
+
+.task-queue-pane {
+  min-height: 0;
   overflow: auto;
 }
 
@@ -777,7 +796,6 @@ select:focus {
 }
 
 .task-form {
-  border-bottom: 1px solid var(--line);
   display: grid;
   gap: 10px;
   padding: 0 22px 18px;
@@ -1221,6 +1239,6 @@ textarea {
   }
 
   .tasks-tab-view {
-    max-height: none;
+    height: calc(100vh - 116px);
   }
 }
