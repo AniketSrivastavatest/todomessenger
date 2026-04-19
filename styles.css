@@ -91,6 +91,22 @@ button {
   font-weight: 800;
 }
 
+.role-switch {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 800;
+  gap: 7px;
+  margin-top: 5px;
+}
+
+.role-switch select {
+  background: white;
+  min-height: 30px;
+  padding: 0 8px;
+}
+
 .brand-row .icon-button {
   background: var(--green);
 }
@@ -319,7 +335,7 @@ h2 {
 .app-tabs {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   padding: 14px 22px;
 }
 
@@ -465,7 +481,8 @@ select:focus {
 }
 
 .workspace-form,
-.employee-list {
+.employee-list,
+.software-list {
   display: grid;
   gap: 10px;
 }
@@ -523,6 +540,50 @@ select:focus {
   color: var(--muted);
   font-size: 0.78rem;
   margin-top: 2px;
+}
+
+.software-card {
+  align-items: center;
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.software-card.connected {
+  border-color: rgba(0, 140, 207, 0.45);
+}
+
+.software-card strong,
+.software-card span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.software-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+.software-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.software-chip {
+  background: var(--cyan);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--green-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 10px;
 }
 
 .conversation-list {

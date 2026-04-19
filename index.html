@@ -65,7 +65,16 @@
     <main class="app-shell" id="appShell">
       <aside class="sidebar" aria-label="Conversations">
         <header class="brand-row">
-          <h1>TodoMessenger</h1>
+          <div>
+            <h1>TodoMessenger</h1>
+            <label class="role-switch" for="roleViewSelect">
+              View as
+              <select id="roleViewSelect">
+                <option value="Admin">Admin</option>
+                <option value="Employee">Employee</option>
+              </select>
+            </label>
+          </div>
           <button class="icon-button" id="newChatButton" type="button" aria-label="Start a new chat">+</button>
         </header>
 
@@ -226,6 +235,16 @@
             </header>
             <div class="employee-list" id="employeeList"></div>
           </section>
+
+          <section class="workspace-card">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Company software</strong>
+                <span>Choose tools employees can import from.</span>
+              </div>
+            </header>
+            <div class="software-list" id="softwareList"></div>
+          </section>
         </section>
       </aside>
 
@@ -246,6 +265,7 @@
               <button class="chat-icon-button" id="moreButton" type="button" aria-label="More options">⋮</button>
               <div class="more-menu-panel" id="moreMenuPanel" hidden>
                 <button id="showPinnedTasks" type="button">Tasks</button>
+                <button id="importWorkAppButton" type="button">Import from apps</button>
                 <button id="inviteButton" type="button">Invite contact</button>
                 <button id="mcpButton" type="button">Connected apps</button>
               </div>
@@ -338,13 +358,14 @@
       <section class="dialog-card wide-dialog">
         <header>
           <div>
-            <p class="eyebrow">Imported from phone</p>
+            <p class="eyebrow">Work app import</p>
             <h2>Review shared content</h2>
           </div>
           <button class="icon-button" id="closeShareImportDialog" type="button" aria-label="Close">x</button>
         </header>
-        <p class="helper-text">Shared WhatsApp messages or exported chats can become tasks after you review them.</p>
-        <textarea id="shareImportText" rows="8"></textarea>
+        <p class="helper-text">Paste or share messages, emails, meeting transcripts, or exported chats from company tools.</p>
+        <div class="software-chip-row" id="importSourceChips"></div>
+        <textarea id="shareImportText" rows="8" placeholder="Paste Teams chat, Gmail email, Zoom transcript, Google Meet notes, or shared app text here."></textarea>
         <menu>
           <button class="ghost-button" id="saveShareToChatButton" type="button">Save to chat</button>
           <button class="primary-button" id="shareToTaskButton" type="button">Add as task</button>

@@ -15,6 +15,14 @@ const seedState = {
     domain: "acme.com",
     inviteCode: "TM-482913",
     role: "Admin",
+    software: [
+      { id: "teams", name: "Microsoft Teams", type: "Chat and calls", enabled: true },
+      { id: "gmail", name: "Gmail", type: "Email", enabled: true },
+      { id: "meet", name: "Google Meet", type: "Meeting transcripts", enabled: true },
+      { id: "zoom", name: "Zoom", type: "Meeting transcripts", enabled: true },
+      { id: "outlook", name: "Outlook", type: "Email and calendar", enabled: false },
+      { id: "slack", name: "Slack", type: "Chat", enabled: false }
+    ],
     employees: [
       { id: "emp_maia", name: "Maia Chen", email: "maia@acme.com", role: "Manager", joinedAt: "2026-04-19T09:00:00.000Z" },
       { id: "emp_nina", name: "Nina Patel", email: "nina@acme.com", role: "Employee", joinedAt: "2026-04-19T09:10:00.000Z" }
@@ -109,6 +117,8 @@ const els = {
   dueTodayCount: document.querySelector("#dueTodayCount"),
   appShell: document.querySelector("#appShell"),
   instagramShareLink: document.querySelector("#instagramShareLink"),
+  importSourceChips: document.querySelector("#importSourceChips"),
+  importWorkAppButton: document.querySelector("#importWorkAppButton"),
   inviteButton: document.querySelector("#inviteButton"),
   inviteContactsButton: document.querySelector("#inviteContactsButton"),
   inviteContactsDialog: document.querySelector("#inviteContactsDialog"),
@@ -154,6 +164,7 @@ const els = {
   reminderDialog: document.querySelector("#reminderDialog"),
   reminderMeta: document.querySelector("#reminderMeta"),
   reminderTitle: document.querySelector("#reminderTitle"),
+  roleViewSelect: document.querySelector("#roleViewSelect"),
   shareImportDialog: document.querySelector("#shareImportDialog"),
   shareImportText: document.querySelector("#shareImportText"),
   shareStatus: document.querySelector("#shareStatus"),
@@ -162,6 +173,7 @@ const els = {
   skipContactSyncButton: document.querySelector("#skipContactSyncButton"),
   skipInviteContactsButton: document.querySelector("#skipInviteContactsButton"),
   smsShareLink: document.querySelector("#smsShareLink"),
+  softwareList: document.querySelector("#softwareList"),
   syncContactsButton: document.querySelector("#syncContactsButton"),
   taskAssignee: document.querySelector("#taskAssignee"),
   taskDue: document.querySelector("#taskDue"),
@@ -268,6 +280,15 @@ els.taskFilter.addEventListener("change", renderTasks);
 els.chatsTabButton.addEventListener("click", () => switchTab("chats"));
 els.tasksTabButton.addEventListener("click", () => switchTab("tasks"));
 els.workspaceTabButton.addEventListener("click", () => switchTab("workspace"));
+els.roleViewSelect.addEventListener("change", () => {
+  state.workspace.role = els.roleViewSelect.value;
+  if (!isAdminView()) {
+    switchTab("chats");
+  }
+  saveState();
+  renderRoleUI();
+  renderWorkspace();
+});
 els.suggestTasksButton.addEventListener("click", suggestTasksFromChat);
 els.backToChatsButton.addEventListener("click", () => setView("home"));
 els.newChatButton.addEventListener("click", () => els.newChatDialog.showModal());
@@ -355,6 +376,10 @@ els.showPinnedTasks.addEventListener("click", () => {
   setView("home");
   switchTab("tasks");
   renderTasks();
+});
+els.importWorkAppButton.addEventListener("click", () => {
+  els.moreMenuPanel.hidden = true;
+  openShareImportDialog("", "manual");
 });
 
 els.workspaceForm.addEventListener("submit", (event) => {
@@ -475,6 +500,7 @@ async function render() {
   renderConnectedApps();
   renderStats();
   renderNotificationStatus();
+  renderRoleUI();
   renderWorkspace();
   renderConversations();
   await renderActiveChat();
@@ -511,6 +537,12 @@ function normalizeWorkspace() {
   state.workspace.inviteCode ||= createWorkspaceInviteCode();
   state.workspace.role ||= "Admin";
   state.workspace.employees ||= [];
+  state.workspace.software ||= structuredClone(seedState.workspace.software);
+  seedState.workspace.software.forEach((tool) => {
+    if (!state.workspace.software.some((item) => item.id === tool.id)) {
+      state.workspace.software.push(structuredClone(tool));
+    }
+  });
   if (state.registration?.user && !state.workspace.employees.some((employee) => employee.id === "me")) {
     state.workspace.employees.unshift({
       id: "me",
@@ -613,6 +645,9 @@ function renderRegistration() {
 }
 
 function switchTab(tab) {
+  if (tab === "workspace" && !isAdminView()) {
+    tab = "chats";
+  }
   const isTasks = tab === "tasks";
   const isWorkspace = tab === "workspace";
   const isChats = tab === "chats";
@@ -622,6 +657,21 @@ function switchTab(tab) {
   els.chatsTabView.classList.toggle("active", isChats);
   els.tasksTabView.classList.toggle("active", isTasks);
   els.workspaceTabView.classList.toggle("active", isWorkspace);
+}
+
+function isAdminView() {
+  return state.workspace?.role !== "Employee";
+}
+
+function renderRoleUI() {
+  const isAdmin = isAdminView();
+  els.roleViewSelect.value = isAdmin ? "Admin" : "Employee";
+  els.workspaceTabButton.hidden = !isAdmin;
+  els.newChatButton.hidden = !isAdmin;
+  els.inviteButton.hidden = !isAdmin;
+  if (!isAdmin && els.workspaceTabView.classList.contains("active")) {
+    switchTab("chats");
+  }
 }
 
 function resetDemo() {
@@ -677,6 +727,30 @@ function renderWorkspace() {
     row.addEventListener("click", () => openEmployeeChat(employee));
     els.employeeList.append(row);
   });
+
+  renderCompanySoftware();
+}
+
+function renderCompanySoftware() {
+  els.softwareList.innerHTML = "";
+  state.workspace.software.forEach((tool) => {
+    const item = document.createElement("article");
+    item.className = `software-card ${tool.enabled ? "connected" : ""}`;
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(tool.name)}</strong>
+        <span>${escapeHtml(tool.type)}</span>
+      </div>
+      <button class="${tool.enabled ? "ghost-button" : "primary-button"}" type="button">${tool.enabled ? "Enabled" : "Enable"}</button>
+    `;
+    item.querySelector("button").addEventListener("click", () => {
+      tool.enabled = !tool.enabled;
+      saveState();
+      renderWorkspace();
+    });
+    els.softwareList.append(item);
+  });
+  renderImportSourceChips();
 }
 
 function openEmployeeChat(employee) {
@@ -1303,14 +1377,13 @@ function notifyTaskReminder(task) {
 function handleSharedContent(event) {
   const text = event.detail?.text?.trim();
   if (!text) return;
+  openShareImportDialog(text, event.detail?.source || "shared");
+}
 
-  if (!isRegistered()) {
-    state.registration.step = stepOrder(state.registration.step) > stepOrder("phone") ? state.registration.step : "phone";
-    saveState();
-    renderRegistration();
-  }
-
+function openShareImportDialog(text = "", source = "manual") {
+  renderImportSourceChips();
   els.shareImportText.value = text;
+  els.shareImportText.dataset.source = source;
   try {
     els.shareImportDialog.showModal();
   } catch {
@@ -1318,17 +1391,34 @@ function handleSharedContent(event) {
   }
 }
 
+function renderImportSourceChips() {
+  if (!els.importSourceChips) return;
+  const tools = (state.workspace.software || []).filter((tool) => tool.enabled);
+  els.importSourceChips.innerHTML = "";
+  tools.forEach((tool) => {
+    const chip = document.createElement("button");
+    chip.className = "software-chip";
+    chip.type = "button";
+    chip.textContent = tool.name;
+    chip.addEventListener("click", () => {
+      els.shareImportText.placeholder = `Paste ${tool.name} content here.`;
+      els.shareImportText.focus();
+    });
+    els.importSourceChips.append(chip);
+  });
+}
+
 async function saveSharedContentToChat() {
   const text = els.shareImportText.value.trim();
   if (!text) return;
-  await addMessage(`Imported from WhatsApp:\n${text}`);
+  await addMessage(`Imported from work app:\n${text}`);
   els.shareImportDialog.close();
 }
 
 function addSharedContentAsTask() {
   const text = els.shareImportText.value.trim();
   if (!text) return;
-  openQuickTaskDialog(summarizeSharedText(text), "WhatsApp share");
+  openQuickTaskDialog(summarizeSharedText(text), "work app import");
   els.shareImportDialog.close();
 }
 
