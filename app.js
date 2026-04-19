@@ -975,10 +975,16 @@ function renderTasks() {
 
     card.querySelector("input").addEventListener("change", (event) => {
       task.done = event.target.checked;
+      if (task.done) {
+        cancelPushReminder(task.id);
+      } else if (task.reminderAt && !task.remindedAt) {
+        schedulePushReminder(task);
+      }
       saveState();
       render();
     });
     card.querySelector(".delete-button").addEventListener("click", () => {
+      cancelPushReminder(task.id);
       state.tasks = state.tasks.filter((item) => item.id !== task.id);
       saveState();
       render();
@@ -1039,7 +1045,7 @@ async function addSystemMessage(text) {
 
 function addTask(title, due, priority, assignee = "Me", reminderAt = "") {
   if (!title) return;
-  state.tasks.unshift({
+  const task = {
     id: createId("t"),
     conversationId: state.activeId,
     title,
@@ -1049,9 +1055,11 @@ function addTask(title, due, priority, assignee = "Me", reminderAt = "") {
     reminderAt,
     remindedAt: "",
     done: false
-  });
+  };
+  state.tasks.unshift(task);
   saveState();
   render();
+  schedulePushReminder(task);
 }
 
 async function requestNotificationPermission() {
@@ -1136,6 +1144,40 @@ function notifyTaskReminder(task) {
     } catch {
       els.reminderDialog.show();
     }
+  }
+}
+
+async function schedulePushReminder(task) {
+  if (!task.reminderAt) return;
+  try {
+    await fetch(`${getBackendUrl()}/api/reminders/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: task.id,
+        title: task.title,
+        assignee: task.assignee || "Me",
+        conversationName: getConversationName(task.conversationId),
+        reminderAt: new Date(task.reminderAt).toISOString(),
+        userId: getPushUserId(),
+        fallbackUserId: "android-device"
+      })
+    });
+  } catch {
+    // Local reminders still work if the backend reminder queue cannot be reached.
+  }
+}
+
+async function cancelPushReminder(taskId) {
+  if (!taskId) return;
+  try {
+    await fetch(`${getBackendUrl()}/api/reminders/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: taskId })
+    });
+  } catch {
+    // Cancelling is best-effort for the prototype.
   }
 }
 

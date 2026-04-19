@@ -35,6 +35,8 @@ const PROVIDERS = {
 };
 
 ensureStore();
+processDueReminders();
+setInterval(processDueReminders, 30000);
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -76,6 +78,18 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/push/send-test") {
       const body = await readJson(req);
       sendJson(res, 200, await sendTestPush(body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/reminders/schedule") {
+      const body = await readJson(req);
+      sendJson(res, 200, scheduleReminder(body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/reminders/cancel") {
+      const body = await readJson(req);
+      sendJson(res, 200, cancelReminder(body));
       return;
     }
 
@@ -330,6 +344,105 @@ async function sendTestPush(body) {
   });
 }
 
+function scheduleReminder(body) {
+  if (!body.id || !body.title || !body.reminderAt) {
+    throw new Error("Reminder requires id, title, and reminderAt.");
+  }
+
+  const reminderTime = new Date(body.reminderAt).getTime();
+  if (!Number.isFinite(reminderTime)) {
+    throw new Error("Invalid reminderAt.");
+  }
+
+  const store = readStore();
+  const reminder = {
+    id: String(body.id),
+    title: String(body.title).slice(0, 160),
+    conversationName: String(body.conversationName || "TodoMessenger").slice(0, 100),
+    assignee: String(body.assignee || "Me").slice(0, 80),
+    userId: String(body.userId || "demo-user"),
+    fallbackUserId: String(body.fallbackUserId || "android-device"),
+    reminderAt: new Date(reminderTime).toISOString(),
+    createdAt: new Date().toISOString(),
+    sentAt: "",
+    attempts: 0,
+    nextAttemptAt: new Date().toISOString(),
+    lastError: ""
+  };
+
+  store.scheduledReminders = [
+    reminder,
+    ...store.scheduledReminders.filter((item) => item.id !== reminder.id)
+  ].slice(0, 2000);
+  writeStore(store);
+  return { ok: true, scheduled: true, reminderAt: reminder.reminderAt };
+}
+
+function cancelReminder(body) {
+  if (!body.id) {
+    throw new Error("Missing reminder id.");
+  }
+
+  const store = readStore();
+  const before = store.scheduledReminders.length;
+  store.scheduledReminders = store.scheduledReminders.filter((item) => item.id !== String(body.id));
+  writeStore(store);
+  return { ok: true, cancelled: before !== store.scheduledReminders.length };
+}
+
+async function processDueReminders() {
+  const store = readStore();
+  const now = Date.now();
+  const due = store.scheduledReminders.filter((reminder) => (
+    !reminder.sentAt &&
+    new Date(reminder.reminderAt).getTime() <= now &&
+    new Date(reminder.nextAttemptAt || reminder.reminderAt).getTime() <= now
+  ));
+
+  if (!due.length) return;
+
+  let changed = false;
+  for (const reminder of due) {
+    try {
+      const token = getPushTokenForReminder(store, reminder);
+      if (!token) {
+        throw new Error("No push token registered.");
+      }
+      await sendFcmMessage({
+        token,
+        title: `Reminder: ${reminder.title}`,
+        body: `${reminder.conversationName} - assigned to ${reminder.assignee || "Me"}`,
+        data: {
+          reminderId: reminder.id,
+          type: "task_reminder"
+        }
+      });
+      reminder.sentAt = new Date().toISOString();
+      reminder.lastError = "";
+      changed = true;
+    } catch (error) {
+      reminder.attempts = Number(reminder.attempts || 0) + 1;
+      reminder.lastError = normalizeError(error);
+      reminder.nextAttemptAt = new Date(Date.now() + Math.min(reminder.attempts, 10) * 60000).toISOString();
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    store.scheduledReminders = store.scheduledReminders.slice(0, 2000);
+    writeStore(store);
+  }
+}
+
+function getPushTokenForReminder(store, reminder) {
+  return (
+    store.pushTokens.find((item) => item.userId === reminder.userId)?.token ||
+    store.pushTokens.find((item) => item.userId === reminder.fallbackUserId)?.token ||
+    store.pushTokens[0]?.token ||
+    ""
+  );
+}
+
 async function sendFcmMessage({ token, title, body, data = {} }) {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   if (!projectId) {
@@ -519,7 +632,7 @@ function getConnection(providerId) {
 function ensureStore() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(STORE_PATH)) {
-    writeStore({ oauthStates: {}, connections: {}, pushTokens: [] });
+    writeStore({ oauthStates: {}, connections: {}, pushTokens: [], scheduledReminders: [] });
   }
 }
 
@@ -528,6 +641,7 @@ function readStore() {
   store.oauthStates ||= {};
   store.connections ||= {};
   store.pushTokens ||= [];
+  store.scheduledReminders ||= [];
   return store;
 }
 

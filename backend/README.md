@@ -7,6 +7,7 @@ It adds:
 - OpenAI-powered Blu backend endpoint.
 - OpenAI-powered task suggestion endpoint for recent chat context, including suggested assignees.
 - Firebase Cloud Messaging token registration and test push endpoint.
+- Backend-scheduled task reminders that send Firebase pushes when due.
 - OAuth start/callback routes for Asana and Jira.
 - Local development token storage in `backend/data/store.json`.
 - API endpoints for creating an Asana task or Jira issue from a TodoMessenger task.
@@ -45,6 +46,8 @@ GET  /oauth/jira/callback
 GET  /api/integrations
 POST /api/push/register
 POST /api/push/send-test
+POST /api/reminders/schedule
+POST /api/reminders/cancel
 POST /api/ai/blu
 POST /api/ai/suggest-tasks
 POST /api/sync/asana/task
@@ -88,6 +91,14 @@ You can send a test push through:
 ```text
 POST /api/push/send-test
 ```
+
+Task reminders are scheduled through:
+
+```text
+POST /api/reminders/schedule
+```
+
+The backend checks due reminders every 30 seconds and sends Firebase pushes to the latest registered Android device token.
 
 ## Production notes
 
