@@ -87,7 +87,7 @@ const server = http.createServer(async (req, res) => {
 
     sendJson(res, 404, { error: "Route not found" });
   } catch (error) {
-    sendJson(res, 500, { error: error.message || "Server error" });
+    sendJson(res, 500, { error: normalizeError(error) });
   }
 });
 
@@ -400,6 +400,17 @@ function addCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+}
+
+function normalizeError(error) {
+  if (!error) return "Server error";
+  if (typeof error === "string") return error;
+  if (error.message) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Server error";
+  }
 }
 
 function loadDotEnv(envPath) {

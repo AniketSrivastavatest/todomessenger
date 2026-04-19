@@ -635,6 +635,18 @@ function getUserId() {
   return normalizePhoneNumber(state.registration.user?.phone || "demo-user");
 }
 
+function formatApiError(error) {
+  if (!error) return "Unknown error";
+  if (typeof error === "string") return error;
+  if (error.message) return error.message;
+  if (error.error?.message) return error.error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
+  }
+}
+
 async function answerWithChatGPT(prompt) {
   const question = prompt || "Tell me what you can help with in this chat.";
   await addMessage("Thinking...", "them");
@@ -652,12 +664,12 @@ async function answerWithChatGPT(prompt) {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "AI request failed");
+      throw new Error(formatApiError(data.error || data));
     }
     thinkingMessage.encrypted = await encryptText(data.answer);
   } catch (error) {
     thinkingMessage.encrypted = await encryptText(
-      `I could not reach the AI backend yet. Configure OPENAI_API_KEY and run npm run backend. (${error.message})`
+      `I could not reach the AI backend yet. Check OPENAI_API_KEY on Render and redeploy the backend. (${formatApiError(error.message || error)})`
     );
   }
 
