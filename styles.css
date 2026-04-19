@@ -26,7 +26,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(135deg, #edf8f3 0%, #f7fbfa 42%, #fff3f2 100%);
+  background:
+    linear-gradient(var(--green) 0 118px, transparent 118px),
+    #e3e0da;
   color: var(--ink);
 }
 
@@ -43,11 +45,15 @@ button {
 
 .app-shell {
   background: white;
-  display: block;
+  box-shadow: 0 16px 45px rgba(23, 32, 28, 0.18);
+  display: grid;
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
   margin: 0 auto;
-  max-width: 560px;
-  min-height: 100vh;
-  width: 100%;
+  max-width: 1500px;
+  min-height: calc(100vh - 38px);
+  position: relative;
+  top: 19px;
+  width: min(96vw, 1500px);
 }
 
 .sidebar {
@@ -58,18 +64,9 @@ button {
 }
 
 .sidebar {
-  border-width: 0;
-  min-height: 100vh;
-}
-
-.app-shell[data-view="home"] .chat-panel,
-.app-shell[data-view="chat"] .sidebar {
-  display: none;
-}
-
-.app-shell[data-view="home"] .sidebar,
-.app-shell[data-view="chat"] .chat-panel {
-  display: grid;
+  border-width: 0 1px 0 0;
+  display: block;
+  min-height: calc(100vh - 38px);
 }
 
 .brand-row,
@@ -83,9 +80,10 @@ button {
 }
 
 .brand-row {
-  background: var(--green);
-  color: white;
-  padding: 10px 14px 8px;
+  background: #f0f2f5;
+  color: var(--ink);
+  min-height: 58px;
+  padding: 10px 16px;
 }
 
 .brand-row h1 {
@@ -94,7 +92,7 @@ button {
 }
 
 .brand-row .icon-button {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--green);
 }
 
 .eyebrow {
@@ -477,17 +475,18 @@ select:focus {
 .chat-panel {
   display: grid;
   grid-template-rows: auto 1fr auto;
-  min-height: 100vh;
+  min-height: calc(100vh - 38px);
   min-width: 0;
 }
 
 .chat-header {
-  background: var(--green);
+  background: #f0f2f5;
   border-bottom: 1px solid var(--line);
-  color: white;
+  color: var(--ink);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  padding: 7px 10px;
+  min-height: 58px;
+  padding: 8px 14px;
 }
 
 .chat-person {
@@ -508,8 +507,8 @@ select:focus {
   align-items: center;
   background: transparent;
   border: 0;
-  color: white;
-  display: inline-flex;
+  color: var(--ink);
+  display: none;
   font-size: 1.65rem;
   font-weight: 400;
   height: 36px;
@@ -521,7 +520,7 @@ select:focus {
 
 .chat-header .ghost-button {
   background: rgba(255, 255, 255, 0.18);
-  color: white;
+  color: var(--ink);
   min-height: 34px;
   padding: 0 10px;
 }
@@ -531,7 +530,7 @@ select:focus {
   background: transparent;
   border: 0;
   border-radius: 8px;
-  color: white;
+  color: var(--muted);
   display: inline-flex;
   font-size: 1.05rem;
   font-weight: 800;
@@ -543,7 +542,7 @@ select:focus {
 
 .chat-icon-button:hover,
 .chat-icon-button:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(18, 140, 93, 0.1);
   outline: none;
 }
 
@@ -583,7 +582,7 @@ select:focus {
 
 .chat-header .chat-person p,
 .chat-header .meta {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
 }
 
 .message-stream {
@@ -924,11 +923,18 @@ textarea {
 
 @media (max-width: 1100px) {
   .app-shell {
-    max-width: 560px;
+    grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
+    width: 100vw;
+    min-height: 100vh;
+    top: 0;
   }
 }
 
 @media (max-width: 760px) {
+  body {
+    background: white;
+  }
+
   .registration-screen {
     padding: 0;
   }
@@ -949,8 +955,28 @@ textarea {
     min-height: 100vh;
   }
 
+  .app-shell {
+    box-shadow: none;
+    display: block;
+    max-width: 560px;
+    min-height: 100vh;
+    top: 0;
+    width: 100%;
+  }
+
+  .app-shell[data-view="home"] .chat-panel,
+  .app-shell[data-view="chat"] .sidebar {
+    display: none;
+  }
+
+  .app-shell[data-view="home"] .sidebar,
+  .app-shell[data-view="chat"] .chat-panel {
+    display: grid;
+  }
+
   .sidebar {
     border-width: 0;
+    min-height: 100vh;
   }
 
   .conversation-list {
@@ -965,7 +991,32 @@ textarea {
     min-height: 100vh;
   }
 
-  .brand-row,
+  .chat-header {
+    background: var(--green);
+    color: white;
+    min-height: auto;
+    padding: 7px 10px;
+  }
+
+  .back-button {
+    color: white;
+    display: inline-flex;
+  }
+
+  .chat-icon-button {
+    color: white;
+  }
+
+  .chat-icon-button:hover,
+  .chat-icon-button:focus-visible {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .chat-header .chat-person p,
+  .chat-header .meta {
+    color: rgba(255, 255, 255, 0.78);
+  }
+
   .task-header {
     align-items: flex-start;
     flex-direction: column;

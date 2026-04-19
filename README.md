@@ -28,7 +28,8 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 
 - Conversation list with search across people, groups, and task text.
 - WhatsApp-style registration flow with phone entry, verification code, and profile setup.
-- WhatsApp-style navigation with a clean recent chats home screen and a separate chat screen.
+- WhatsApp Web-style desktop layout with recent chats on the left and the active conversation on the right.
+- Mobile keeps WhatsApp-style navigation with a clean recent chats home screen and a separate chat screen.
 - Active chat screen with message history, back navigation, call/video/more actions, and a message composer.
 - Browser-side AES-GCM message encryption before messages are stored in local demo state.
 - `@chatgpt` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
