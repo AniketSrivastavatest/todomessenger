@@ -1,3 +1,3 @@
 window.TODOMESSENGER_CONFIG = {
-  backendUrl: "http://localhost:8787"
+  backendUrl: "https://todomessenger-backend.onrender.com"
 };

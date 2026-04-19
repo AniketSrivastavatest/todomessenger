@@ -21,7 +21,7 @@ After the backend is deployed, update `app-config.js`:
 
 ```js
 window.TODOMESSENGER_CONFIG = {
-  backendUrl: "https://YOUR_RENDER_SERVICE.onrender.com"
+  backendUrl: "https://todomessenger-backend.onrender.com"
 };
 ```
 
@@ -40,8 +40,8 @@ Render can read `render.yaml`, or configure manually:
 Set these environment variables:
 
 ```text
-PUBLIC_BACKEND_URL=https://YOUR_RENDER_SERVICE.onrender.com
-FRONTEND_ORIGIN=https://todomesseneger26.netlify.app
+PUBLIC_BACKEND_URL=https://todomessenger-backend.onrender.com
+FRONTEND_ORIGIN=https://todomessenger26.netlify.app
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-5.4-mini
 ```
@@ -51,7 +51,7 @@ For Asana:
 ```text
 ASANA_CLIENT_ID=
 ASANA_CLIENT_SECRET=
-ASANA_REDIRECT_URI=https://YOUR_RENDER_SERVICE.onrender.com/oauth/asana/callback
+ASANA_REDIRECT_URI=https://todomessenger-backend.onrender.com/oauth/asana/callback
 ASANA_WORKSPACE_GID=
 ```
 
@@ -60,7 +60,7 @@ For Jira:
 ```text
 JIRA_CLIENT_ID=
 JIRA_CLIENT_SECRET=
-JIRA_REDIRECT_URI=https://YOUR_RENDER_SERVICE.onrender.com/oauth/jira/callback
+JIRA_REDIRECT_URI=https://todomessenger-backend.onrender.com/oauth/jira/callback
 JIRA_CLOUD_ID=
 JIRA_PROJECT_KEY=
 ```
@@ -78,8 +78,8 @@ After backend deployment and frontend config update, open a chat and send:
 Use these redirect URLs in provider developer dashboards:
 
 ```text
-https://YOUR_RENDER_SERVICE.onrender.com/oauth/asana/callback
-https://YOUR_RENDER_SERVICE.onrender.com/oauth/jira/callback
+https://todomessenger-backend.onrender.com/oauth/asana/callback
+https://todomessenger-backend.onrender.com/oauth/jira/callback
 ```
 
 ## Production Warning

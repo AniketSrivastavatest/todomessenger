@@ -7,9 +7,9 @@ services:
     startCommand: npm run backend
     envVars:
       - key: PUBLIC_BACKEND_URL
-        sync: false
+        value: https://todomessenger-backend.onrender.com
       - key: FRONTEND_ORIGIN
-        value: https://todomesseneger26.netlify.app
+        value: https://todomessenger26.netlify.app
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
