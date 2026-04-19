@@ -73,6 +73,7 @@ const els = {
   closeInviteDialog: document.querySelector("#closeInviteDialog"),
   closeMcpDialog: document.querySelector("#closeMcpDialog"),
   closeQuickTaskDialog: document.querySelector("#closeQuickTaskDialog"),
+  contactSyncDialog: document.querySelector("#contactSyncDialog"),
   connectedApps: document.querySelector("#connectedApps"),
   copyInviteButton: document.querySelector("#copyInviteButton"),
   countryCode: document.querySelector("#countryCode"),
@@ -85,6 +86,8 @@ const els = {
   appShell: document.querySelector("#appShell"),
   instagramShareLink: document.querySelector("#instagramShareLink"),
   inviteButton: document.querySelector("#inviteButton"),
+  inviteContactsButton: document.querySelector("#inviteContactsButton"),
+  inviteContactsDialog: document.querySelector("#inviteContactsDialog"),
   inviteDialog: document.querySelector("#inviteDialog"),
   inviteLink: document.querySelector("#inviteLink"),
   mcpAppName: document.querySelector("#mcpAppName"),
@@ -121,7 +124,10 @@ const els = {
   registrationTitle: document.querySelector("#registrationTitle"),
   shareStatus: document.querySelector("#shareStatus"),
   showPinnedTasks: document.querySelector("#showPinnedTasks"),
+  skipContactSyncButton: document.querySelector("#skipContactSyncButton"),
+  skipInviteContactsButton: document.querySelector("#skipInviteContactsButton"),
   smsShareLink: document.querySelector("#smsShareLink"),
+  syncContactsButton: document.querySelector("#syncContactsButton"),
   taskAssignee: document.querySelector("#taskAssignee"),
   taskDue: document.querySelector("#taskDue"),
   taskFilter: document.querySelector("#taskFilter"),
@@ -241,6 +247,13 @@ els.inviteButton.addEventListener("click", openInviteDialog);
 els.closeInviteDialog.addEventListener("click", () => els.inviteDialog.close());
 els.copyInviteButton.addEventListener("click", copyInviteLink);
 els.nativeShareButton.addEventListener("click", shareInvite);
+els.syncContactsButton.addEventListener("click", completeContactSyncPrompt);
+els.skipContactSyncButton.addEventListener("click", completeContactSyncPrompt);
+els.inviteContactsButton.addEventListener("click", () => {
+  completeInviteContactsPrompt();
+  openInviteDialog();
+});
+els.skipInviteContactsButton.addEventListener("click", completeInviteContactsPrompt);
 
 els.mcpButton.addEventListener("click", () => {
   els.moreMenuPanel.hidden = true;
@@ -361,6 +374,7 @@ async function render() {
   renderConversations();
   await renderActiveChat();
   renderTasks();
+  queueContactPrompts();
 }
 
 function setView(view) {
@@ -402,6 +416,37 @@ function normalizeTasks() {
 
 function isRegistered() {
   return Boolean(state.registration.user);
+}
+
+function queueContactPrompts() {
+  if (currentView !== "home") return;
+  if (!localStorage.getItem("todomessenger-contact-sync-prompted")) {
+    window.setTimeout(() => {
+      if (isRegistered() && !localStorage.getItem("todomessenger-contact-sync-prompted") && !els.contactSyncDialog.open) {
+        els.contactSyncDialog.showModal();
+      }
+    }, 700);
+    return;
+  }
+
+  if (!localStorage.getItem("todomessenger-invite-contacts-prompted")) {
+    window.setTimeout(() => {
+      if (isRegistered() && !localStorage.getItem("todomessenger-invite-contacts-prompted") && !els.inviteContactsDialog.open) {
+        els.inviteContactsDialog.showModal();
+      }
+    }, 900);
+  }
+}
+
+function completeContactSyncPrompt() {
+  localStorage.setItem("todomessenger-contact-sync-prompted", "true");
+  els.contactSyncDialog.close();
+  queueContactPrompts();
+}
+
+function completeInviteContactsPrompt() {
+  localStorage.setItem("todomessenger-invite-contacts-prompted", "true");
+  els.inviteContactsDialog.close();
 }
 
 function renderRegistration() {

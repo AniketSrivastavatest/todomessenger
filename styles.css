@@ -810,7 +810,9 @@ dialog {
 
 #inviteDialog,
 #mcpDialog,
-#quickTaskDialog {
+#quickTaskDialog,
+#contactSyncDialog,
+#inviteContactsDialog {
   width: min(560px, calc(100vw - 32px));
 }
 
@@ -845,6 +847,24 @@ dialog::backdrop {
 .dialog-card h3 {
   font-size: 1rem;
   margin: 0 0 10px;
+}
+
+.contact-popup {
+  justify-items: stretch;
+  text-align: left;
+}
+
+.popup-hero {
+  align-items: center;
+  background: var(--cyan);
+  border-radius: 8px;
+  color: var(--green-dark);
+  display: inline-flex;
+  font-size: 2rem;
+  font-weight: 900;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
 }
 
 .share-grid {

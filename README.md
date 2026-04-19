@@ -39,6 +39,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - Assign tasks to yourself, a contact, or a team from manual, chat-based, and AI-suggested task flows.
 - Direct task creation from the composer or from any chat message.
 - Invite sharing through native phone sharing, WhatsApp, Instagram, SMS, email, and copy link.
+- Contact sync and invite-contact onboarding popups.
 - MCP-style connected app registry with a manifest preview.
 - Backend scaffold for Asana/Jira OAuth and task/issue sync.
 - Android WebView app source under `android-app/`.
