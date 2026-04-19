@@ -918,12 +918,14 @@ dialog {
 #inviteDialog,
 #mcpDialog,
 #quickTaskDialog,
+#shareImportDialog,
 #contactSyncDialog,
 #inviteContactsDialog {
   width: min(560px, calc(100vw - 32px));
 }
 
-#mcpDialog {
+#mcpDialog,
+#shareImportDialog {
   width: min(820px, calc(100vw - 32px));
 }
 

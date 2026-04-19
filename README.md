@@ -40,6 +40,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - Task reminders with in-app reminder popups and optional browser notifications.
 - Backend-scheduled Firebase push reminders for Android when the app is closed.
 - Direct task creation from the composer or from any chat message.
+- Android share/import target for WhatsApp messages, exported chats, images, PDFs, and files.
 - Invite sharing through native phone sharing, WhatsApp, Instagram, SMS, email, and copy link.
 - Contact sync and invite-contact onboarding popups.
 - MCP-style connected app registry with a manifest preview.

@@ -134,7 +134,10 @@ const els = {
   reminderDialog: document.querySelector("#reminderDialog"),
   reminderMeta: document.querySelector("#reminderMeta"),
   reminderTitle: document.querySelector("#reminderTitle"),
+  shareImportDialog: document.querySelector("#shareImportDialog"),
+  shareImportText: document.querySelector("#shareImportText"),
   shareStatus: document.querySelector("#shareStatus"),
+  shareToTaskButton: document.querySelector("#shareToTaskButton"),
   showPinnedTasks: document.querySelector("#showPinnedTasks"),
   skipContactSyncButton: document.querySelector("#skipContactSyncButton"),
   skipInviteContactsButton: document.querySelector("#skipInviteContactsButton"),
@@ -156,9 +159,11 @@ const els = {
   verifyTarget: document.querySelector("#verifyTarget"),
   videoCallButton: document.querySelector("#videoCallButton"),
   voiceCallButton: document.querySelector("#voiceCallButton"),
+  closeShareImportDialog: document.querySelector("#closeShareImportDialog"),
   dismissReminderButton: document.querySelector("#dismissReminderButton"),
   nativeShareButton: document.querySelector("#nativeShareButton"),
   openReminderChatButton: document.querySelector("#openReminderChatButton"),
+  saveShareToChatButton: document.querySelector("#saveShareToChatButton"),
   suggestTasksButton: document.querySelector("#suggestTasksButton"),
   whatsappShareLink: document.querySelector("#whatsappShareLink")
 };
@@ -246,6 +251,7 @@ document.addEventListener("click", (event) => {
   }
 });
 window.addEventListener("todomessenger:fcmToken", registerFcmToken);
+window.addEventListener("todomessenger:sharedContent", handleSharedContent);
 els.quickTaskButton.addEventListener("click", () => openQuickTaskDialog(els.messageInput.value.trim(), "current chat"));
 els.cancelQuickTask.addEventListener("click", () => els.quickTaskDialog.close());
 els.closeQuickTaskDialog.addEventListener("click", () => els.quickTaskDialog.close());
@@ -261,6 +267,9 @@ els.quickTaskForm.addEventListener("submit", async (event) => {
 });
 els.notificationButton.addEventListener("click", requestNotificationPermission);
 els.dismissReminderButton.addEventListener("click", () => els.reminderDialog.close());
+els.closeShareImportDialog.addEventListener("click", () => els.shareImportDialog.close());
+els.saveShareToChatButton.addEventListener("click", saveSharedContentToChat);
+els.shareToTaskButton.addEventListener("click", addSharedContentAsTask);
 els.openReminderChatButton.addEventListener("click", () => {
   const task = state.tasks.find((item) => item.id === activeReminderTaskId);
   if (task) {
@@ -1145,6 +1154,47 @@ function notifyTaskReminder(task) {
       els.reminderDialog.show();
     }
   }
+}
+
+function handleSharedContent(event) {
+  const text = event.detail?.text?.trim();
+  if (!text) return;
+
+  if (!isRegistered()) {
+    state.registration.step = stepOrder(state.registration.step) > stepOrder("phone") ? state.registration.step : "phone";
+    saveState();
+    renderRegistration();
+  }
+
+  els.shareImportText.value = text;
+  try {
+    els.shareImportDialog.showModal();
+  } catch {
+    els.shareImportDialog.show();
+  }
+}
+
+async function saveSharedContentToChat() {
+  const text = els.shareImportText.value.trim();
+  if (!text) return;
+  await addMessage(`Imported from WhatsApp:\n${text}`);
+  els.shareImportDialog.close();
+}
+
+function addSharedContentAsTask() {
+  const text = els.shareImportText.value.trim();
+  if (!text) return;
+  openQuickTaskDialog(summarizeSharedText(text), "WhatsApp share");
+  els.shareImportDialog.close();
+}
+
+function summarizeSharedText(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\[[^\]]+\]\s*/, "").trim())
+    .filter(Boolean)
+    .find((line) => !line.toLowerCase().startsWith("attachment:"))
+    ?.slice(0, 140) || text.slice(0, 140);
 }
 
 async function schedulePushReminder(task) {

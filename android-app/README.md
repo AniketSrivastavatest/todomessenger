@@ -76,4 +76,5 @@ The file is ignored by Git because it is environment-specific. After Firebase is
 - JavaScript and localStorage are enabled.
 - Non-web links, such as `mailto:`, `sms:`, and custom URL schemes, open externally.
 - The release build uses code shrinking and resource shrinking.
+- Android share sheet support lets users share WhatsApp text, exported chats, images, PDFs, and files into TodoMessenger.
 - See `PLAY_STORE_CHECKLIST.md` before uploading to Google Play.

@@ -10,6 +10,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.View;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -25,6 +26,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://todomessenger26.netlify.app/";
@@ -36,6 +38,7 @@ public class MainActivity extends Activity {
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> filePathCallback;
     private String pendingFcmToken;
+    private String pendingSharedPayload;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -64,6 +67,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 deliverFcmTokenToWeb();
+                deliverSharedContentToWeb();
             }
 
             @Override
@@ -104,7 +108,16 @@ public class MainActivity extends Activity {
         }
 
         requestNotificationPermissionIfNeeded();
+        captureSharedContent(getIntent());
         loadFcmToken();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        captureSharedContent(intent);
+        deliverSharedContentToWeb();
     }
 
     @Override
@@ -172,6 +185,67 @@ public class MainActivity extends Activity {
                 "window.dispatchEvent(new CustomEvent('todomessenger:fcmToken',{detail:{token:'" + escapedToken + "',platform:'android'}}));",
                 null
         );
+    }
+
+    private void captureSharedContent(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+
+        String action = intent.getAction();
+        if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            return;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+        String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+        if (subject != null && !subject.isEmpty()) {
+            builder.append(subject).append("\n");
+        }
+        if (text != null && !text.isEmpty()) {
+            builder.append(text).append("\n");
+        }
+
+        ArrayList<Uri> uris = new ArrayList<>();
+        Uri singleStream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (singleStream != null) {
+            uris.add(singleStream);
+        }
+        ArrayList<Parcelable> streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+        if (streams != null) {
+            for (Parcelable parcelable : streams) {
+                if (parcelable instanceof Uri) {
+                    uris.add((Uri) parcelable);
+                }
+            }
+        }
+
+        for (Uri uri : uris) {
+            builder.append("Attachment: ").append(uri.toString()).append("\n");
+        }
+
+        String content = builder.toString().trim();
+        if (!content.isEmpty()) {
+            pendingSharedPayload = content;
+        }
+    }
+
+    private void deliverSharedContentToWeb() {
+        if (pendingSharedPayload == null || webView == null) {
+            return;
+        }
+
+        String escaped = pendingSharedPayload
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
+        webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('todomessenger:sharedContent',{detail:{source:'android-share',text:'" + escaped + "'}}));",
+                null
+        );
+        pendingSharedPayload = null;
     }
 
     private void registerFcmTokenWithBackend(String token) {
