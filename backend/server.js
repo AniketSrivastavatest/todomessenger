@@ -251,8 +251,8 @@ async function suggestTasks(body) {
     JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
       instructions:
-        "You extract actionable to-do tasks from a chat. Return only JSON with a tasks array. Each task must have title, priority, due, and reason. priority must be low, normal, or high. due should be an ISO date string or empty string. Keep titles short.",
-      input: `Conversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","priority":"normal","due":"","reason":"..."}]}.`,
+        "You extract actionable to-do tasks from a chat. Return only JSON with a tasks array. Each task must have title, assignee, priority, due, and reason. priority must be low, normal, or high. due should be an ISO date string or empty string. If the assignee is unclear, use Me. Keep titles short.",
+      input: `Conversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","assignee":"Me","priority":"normal","due":"","reason":"..."}]}.`,
       max_output_tokens: 800
     }),
     {
@@ -271,6 +271,7 @@ function normalizeSuggestedTasks(text) {
     return {
       tasks: tasks.slice(0, 6).map((task) => ({
         title: String(task.title || "").slice(0, 120),
+        assignee: String(task.assignee || "Me").slice(0, 80),
         priority: ["low", "normal", "high"].includes(task.priority) ? task.priority : "normal",
         due: typeof task.due === "string" ? task.due : "",
         reason: String(task.reason || "Suggested from chat").slice(0, 160)

@@ -36,6 +36,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - `@chatgpt` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
 - AI task suggestions that read recent decrypted messages only after the user taps the suggestion button.
 - Separate Tasks tab for adding and managing to-dos without cluttering the chat screen.
+- Assign tasks to yourself, a contact, or a team from manual, chat-based, and AI-suggested task flows.
 - Direct task creation from the composer or from any chat message.
 - Invite sharing through native phone sharing, WhatsApp, Instagram, SMS, email, and copy link.
 - MCP-style connected app registry with a manifest preview.

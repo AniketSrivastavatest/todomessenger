@@ -49,10 +49,10 @@ const seedState = {
     }
   ],
   tasks: [
-    { id: "t1", conversationId: "launch", title: "Review payment confirmation copy", due: todayIso, priority: "high", done: false },
-    { id: "t2", conversationId: "launch", title: "Publish beta onboarding checklist", due: todayIso, priority: "normal", done: false },
-    { id: "t3", conversationId: "nina", title: "Compare venue shortlist prices", due: "", priority: "normal", done: false },
-    { id: "t4", conversationId: "support", title: "Approve refund macro update", due: "", priority: "low", done: true }
+    { id: "t1", conversationId: "launch", title: "Review payment confirmation copy", due: todayIso, priority: "high", assignee: "Me", done: false },
+    { id: "t2", conversationId: "launch", title: "Publish beta onboarding checklist", due: todayIso, priority: "normal", assignee: "Launch Squad", done: false },
+    { id: "t3", conversationId: "nina", title: "Compare venue shortlist prices", due: "", priority: "normal", assignee: "Nina Patel", done: false },
+    { id: "t4", conversationId: "support", title: "Approve refund macro update", due: "", priority: "low", assignee: "Customer Support", done: true }
   ]
 };
 
@@ -108,6 +108,7 @@ const els = {
   profileAbout: document.querySelector("#profileAbout"),
   profileForm: document.querySelector("#profileForm"),
   profileName: document.querySelector("#profileName"),
+  quickTaskAssignee: document.querySelector("#quickTaskAssignee"),
   quickTaskDialog: document.querySelector("#quickTaskDialog"),
   quickTaskButton: document.querySelector("#quickTaskButton"),
   quickTaskDue: document.querySelector("#quickTaskDue"),
@@ -121,6 +122,7 @@ const els = {
   shareStatus: document.querySelector("#shareStatus"),
   showPinnedTasks: document.querySelector("#showPinnedTasks"),
   smsShareLink: document.querySelector("#smsShareLink"),
+  taskAssignee: document.querySelector("#taskAssignee"),
   taskDue: document.querySelector("#taskDue"),
   taskFilter: document.querySelector("#taskFilter"),
   taskForm: document.querySelector("#taskForm"),
@@ -142,6 +144,7 @@ const els = {
 
 normalizeRegistrationState();
 normalizeConnectedApps();
+normalizeTasks();
 bootstrap();
 
 els.phoneForm.addEventListener("submit", (event) => {
@@ -228,7 +231,7 @@ els.quickTaskForm.addEventListener("submit", async (event) => {
   const title = els.quickTaskTitle.value.trim();
   if (!title) return;
 
-  addTask(title, els.quickTaskDue.value, els.quickTaskPriority.value);
+  addTask(title, els.quickTaskDue.value, els.quickTaskPriority.value, els.quickTaskAssignee.value);
   await addMessage(`Task added from chat: ${title}`);
   els.quickTaskForm.reset();
   els.quickTaskDialog.close();
@@ -277,7 +280,7 @@ els.messageForm.addEventListener("submit", async (event) => {
   if (!text) return;
 
   if (text.toLowerCase().startsWith("/todo ")) {
-    addTask(text.slice(6).trim(), "", "normal");
+    addTask(text.slice(6).trim(), "", "normal", "Me");
     await addMessage(`Task added: ${text.slice(6).trim()}`);
   } else if (text.toLowerCase().startsWith("@chatgpt")) {
     await addMessage(text);
@@ -293,7 +296,7 @@ els.taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const title = els.taskTitle.value.trim();
   if (!title) return;
-  addTask(title, els.taskDue.value, els.taskPriority.value);
+  addTask(title, els.taskDue.value, els.taskPriority.value, els.taskAssignee.value);
   await addMessage(`Task added: ${title}`);
   els.taskForm.reset();
 });
@@ -390,6 +393,13 @@ function normalizeConnectedApps() {
   });
 }
 
+function normalizeTasks() {
+  state.tasks ||= [];
+  state.tasks.forEach((task) => {
+    task.assignee ||= "Me";
+  });
+}
+
 function isRegistered() {
   return Boolean(state.registration.user);
 }
@@ -444,6 +454,7 @@ function resetDemo() {
   currentView = "home";
   normalizeRegistrationState();
   normalizeConnectedApps();
+  normalizeTasks();
   saveState();
   render();
 }
@@ -723,11 +734,12 @@ function renderTaskSuggestions(tasks) {
       <div>
         <strong>${escapeHtml(task.title || "Untitled task")}</strong>
         <span>${escapeHtml(task.reason || "Suggested from recent messages")}</span>
+        <span>Assign to ${escapeHtml(task.assignee || "Me")}</span>
       </div>
       <button class="primary-button" type="button">Add</button>
     `;
     card.querySelector("button").addEventListener("click", () => {
-      addTask(task.title || "Untitled task", task.due || "", task.priority || "normal");
+      addTask(task.title || "Untitled task", task.due || "", task.priority || "normal", task.assignee || "Me");
       card.remove();
     });
     els.taskSuggestionList.append(card);
@@ -830,6 +842,7 @@ function renderTasks() {
       </label>
       <footer>
         <span class="pill">${escapeHtml(getConversationName(task.conversationId))}</span>
+        <span class="pill">Assigned to ${escapeHtml(task.assignee || "Me")}</span>
         <span class="pill">${task.due ? `Due ${formatDate(task.due)}` : "No due date"}</span>
         <span class="pill">${escapeHtml(task.priority)} priority</span>
         <button class="delete-button" type="button">Delete</button>
@@ -865,7 +878,7 @@ async function addSystemMessage(text) {
   await addMessage(text, "them");
 }
 
-function addTask(title, due, priority) {
+function addTask(title, due, priority, assignee = "Me") {
   if (!title) return;
   state.tasks.unshift({
     id: createId("t"),
@@ -873,6 +886,7 @@ function addTask(title, due, priority) {
     title,
     due,
     priority,
+    assignee: assignee.trim() || "Me",
     done: false
   });
   saveState();
