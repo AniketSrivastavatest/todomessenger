@@ -72,6 +72,7 @@
         <nav class="app-tabs" aria-label="Main sections">
           <button class="tab-button active" id="chatsTabButton" type="button">Chats</button>
           <button class="tab-button" id="tasksTabButton" type="button">Tasks</button>
+          <button class="tab-button" id="workspaceTabButton" type="button">Workspace</button>
         </nav>
 
         <section class="tab-view active" id="chatsTabView" aria-label="Chats tab">
@@ -125,7 +126,7 @@
             <input id="taskTitle" required placeholder="Add a task for this chat">
 
             <label for="taskAssignee">Assign to</label>
-            <input id="taskAssignee" placeholder="Me, Alex, Design team">
+            <input id="taskAssignee" list="employeeOptions" placeholder="Me, Alex, Design team">
 
             <div class="form-grid">
               <label for="taskDue">
@@ -154,6 +155,77 @@
           </section>
 
           <div class="task-list" id="taskList"></div>
+        </section>
+
+        <section class="tab-view workspace-tab-view" id="workspaceTabView" aria-label="Workspace tab">
+          <header class="task-header">
+            <div>
+              <p class="eyebrow">Company</p>
+              <h2 id="workspaceName">Workspace</h2>
+            </div>
+            <span class="workspace-badge" id="workspaceRole">Admin</span>
+          </header>
+
+          <section class="workspace-card">
+            <form class="workspace-form" id="workspaceForm">
+              <label for="workspaceCompanyName">Company name</label>
+              <input id="workspaceCompanyName" required placeholder="Acme Corp">
+
+              <label for="workspaceDomain">Company email domain</label>
+              <input id="workspaceDomain" placeholder="acme.com">
+
+              <button class="primary-button" type="submit">Save workspace</button>
+            </form>
+          </section>
+
+          <section class="workspace-card">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Employee invite</strong>
+                <span>Share this with new employees during onboarding.</span>
+              </div>
+              <button class="ghost-button" id="regenerateInviteButton" type="button">New code</button>
+            </header>
+            <label for="workspaceInviteLink">Invite link</label>
+            <input id="workspaceInviteLink" readonly>
+            <div class="workspace-actions">
+              <button class="primary-button" id="shareWorkspaceInviteButton" type="button">Share invite</button>
+              <button class="ghost-button" id="copyWorkspaceInviteButton" type="button">Copy link</button>
+            </div>
+            <p class="helper-text" id="workspaceInviteStatus">Invite code ready.</p>
+          </section>
+
+          <section class="workspace-card">
+            <form class="workspace-form" id="employeeJoinForm">
+              <header class="workspace-card-header">
+                <div>
+                  <strong>Join workspace</strong>
+                  <span>Demo employee onboarding flow.</span>
+                </div>
+              </header>
+
+              <label for="employeeJoinName">Employee name</label>
+              <input id="employeeJoinName" required placeholder="Aarav Sharma">
+
+              <label for="employeeJoinEmail">Work email</label>
+              <input id="employeeJoinEmail" type="email" placeholder="aarav@company.com">
+
+              <label for="employeeJoinCode">Invite code</label>
+              <input id="employeeJoinCode" required placeholder="TM-123456">
+
+              <button class="primary-button" type="submit">Join and add employee</button>
+            </form>
+          </section>
+
+          <section class="workspace-card">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Employees</strong>
+                <span id="employeeCount">0 people</span>
+              </div>
+            </header>
+            <div class="employee-list" id="employeeList"></div>
+          </section>
         </section>
       </aside>
 
@@ -220,7 +292,7 @@
         <label for="quickTaskTitle">Task</label>
         <input id="quickTaskTitle" required placeholder="Follow up on this message">
         <label for="quickTaskAssignee">Assign to</label>
-        <input id="quickTaskAssignee" placeholder="Me, Alex, Design team">
+        <input id="quickTaskAssignee" list="employeeOptions" placeholder="Me, Alex, Design team">
         <div class="form-grid">
           <label for="quickTaskDue">
             Due
@@ -366,6 +438,8 @@
         <textarea id="mcpManifest" readonly rows="10"></textarea>
       </section>
     </dialog>
+
+    <datalist id="employeeOptions"></datalist>
 
     <script src="app-config.js"></script>
     <script src="app.js"></script>

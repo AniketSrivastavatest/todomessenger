@@ -9,6 +9,17 @@ const seedState = {
     verificationCode: "",
     user: null
   },
+  workspace: {
+    id: "acme",
+    name: "Acme Operations",
+    domain: "acme.com",
+    inviteCode: "TM-482913",
+    role: "Admin",
+    employees: [
+      { id: "emp_maia", name: "Maia Chen", email: "maia@acme.com", role: "Manager", joinedAt: "2026-04-19T09:00:00.000Z" },
+      { id: "emp_nina", name: "Nina Patel", email: "nina@acme.com", role: "Employee", joinedAt: "2026-04-19T09:10:00.000Z" }
+    ]
+  },
   connectedApps: [
     { id: "asana", name: "Asana", endpoint: "/oauth/asana/start", connected: false, tools: ["create_task", "sync_due_date"], provider: "asana" },
     { id: "jira", name: "Jira", endpoint: "/oauth/jira/start", connected: false, tools: ["create_issue", "sync_status"], provider: "jira" },
@@ -86,7 +97,15 @@ const els = {
   demoCodeText: document.querySelector("#demoCodeText"),
   editPhoneButton: document.querySelector("#editPhoneButton"),
   emailShareLink: document.querySelector("#emailShareLink"),
+  employeeCount: document.querySelector("#employeeCount"),
+  employeeJoinCode: document.querySelector("#employeeJoinCode"),
+  employeeJoinEmail: document.querySelector("#employeeJoinEmail"),
+  employeeJoinForm: document.querySelector("#employeeJoinForm"),
+  employeeJoinName: document.querySelector("#employeeJoinName"),
+  employeeList: document.querySelector("#employeeList"),
+  employeeOptions: document.querySelector("#employeeOptions"),
   conversationList: document.querySelector("#conversationList"),
+  copyWorkspaceInviteButton: document.querySelector("#copyWorkspaceInviteButton"),
   dueTodayCount: document.querySelector("#dueTodayCount"),
   appShell: document.querySelector("#appShell"),
   instagramShareLink: document.querySelector("#instagramShareLink"),
@@ -130,6 +149,7 @@ const els = {
   registrationCopy: document.querySelector("#registrationCopy"),
   registrationScreen: document.querySelector("#registrationScreen"),
   registrationTitle: document.querySelector("#registrationTitle"),
+  regenerateInviteButton: document.querySelector("#regenerateInviteButton"),
   reminderCount: document.querySelector("#reminderCount"),
   reminderDialog: document.querySelector("#reminderDialog"),
   reminderMeta: document.querySelector("#reminderMeta"),
@@ -164,11 +184,22 @@ const els = {
   nativeShareButton: document.querySelector("#nativeShareButton"),
   openReminderChatButton: document.querySelector("#openReminderChatButton"),
   saveShareToChatButton: document.querySelector("#saveShareToChatButton"),
+  shareWorkspaceInviteButton: document.querySelector("#shareWorkspaceInviteButton"),
   suggestTasksButton: document.querySelector("#suggestTasksButton"),
-  whatsappShareLink: document.querySelector("#whatsappShareLink")
+  whatsappShareLink: document.querySelector("#whatsappShareLink"),
+  workspaceCompanyName: document.querySelector("#workspaceCompanyName"),
+  workspaceDomain: document.querySelector("#workspaceDomain"),
+  workspaceForm: document.querySelector("#workspaceForm"),
+  workspaceInviteLink: document.querySelector("#workspaceInviteLink"),
+  workspaceInviteStatus: document.querySelector("#workspaceInviteStatus"),
+  workspaceName: document.querySelector("#workspaceName"),
+  workspaceRole: document.querySelector("#workspaceRole"),
+  workspaceTabButton: document.querySelector("#workspaceTabButton"),
+  workspaceTabView: document.querySelector("#workspaceTabView")
 };
 
 normalizeRegistrationState();
+normalizeWorkspace();
 normalizeConnectedApps();
 normalizeTasks();
 bootstrap();
@@ -236,6 +267,7 @@ els.chatSearch.addEventListener("input", renderConversations);
 els.taskFilter.addEventListener("change", renderTasks);
 els.chatsTabButton.addEventListener("click", () => switchTab("chats"));
 els.tasksTabButton.addEventListener("click", () => switchTab("tasks"));
+els.workspaceTabButton.addEventListener("click", () => switchTab("workspace"));
 els.suggestTasksButton.addEventListener("click", suggestTasksFromChat);
 els.backToChatsButton.addEventListener("click", () => setView("home"));
 els.newChatButton.addEventListener("click", () => els.newChatDialog.showModal());
@@ -323,6 +355,28 @@ els.showPinnedTasks.addEventListener("click", () => {
   setView("home");
   switchTab("tasks");
   renderTasks();
+});
+
+els.workspaceForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.workspace.name = els.workspaceCompanyName.value.trim() || "Company Workspace";
+  state.workspace.domain = normalizeDomain(els.workspaceDomain.value);
+  saveState();
+  renderWorkspace();
+});
+
+els.regenerateInviteButton.addEventListener("click", () => {
+  state.workspace.inviteCode = createWorkspaceInviteCode();
+  saveState();
+  renderWorkspace();
+  els.workspaceInviteStatus.textContent = "New invite code created.";
+});
+
+els.copyWorkspaceInviteButton.addEventListener("click", copyWorkspaceInvite);
+els.shareWorkspaceInviteButton.addEventListener("click", shareWorkspaceInvite);
+els.employeeJoinForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  joinWorkspaceFromInvite();
 });
 
 els.attachButton.addEventListener("click", () => els.attachmentInput.click());
@@ -421,6 +475,7 @@ async function render() {
   renderConnectedApps();
   renderStats();
   renderNotificationStatus();
+  renderWorkspace();
   renderConversations();
   await renderActiveChat();
   renderTasks();
@@ -445,6 +500,25 @@ function normalizeRegistrationState() {
     state.registration.user = state.user;
     state.registration.step = "complete";
     delete state.user;
+  }
+}
+
+function normalizeWorkspace() {
+  state.workspace ||= structuredClone(seedState.workspace);
+  state.workspace.id ||= createId("workspace");
+  state.workspace.name ||= "Company Workspace";
+  state.workspace.domain ||= "";
+  state.workspace.inviteCode ||= createWorkspaceInviteCode();
+  state.workspace.role ||= "Admin";
+  state.workspace.employees ||= [];
+  if (state.registration?.user && !state.workspace.employees.some((employee) => employee.id === "me")) {
+    state.workspace.employees.unshift({
+      id: "me",
+      name: state.registration.user.name,
+      email: "",
+      role: "Admin",
+      joinedAt: state.registration.user.joinedAt || new Date().toISOString()
+    });
   }
 }
 
@@ -540,16 +614,21 @@ function renderRegistration() {
 
 function switchTab(tab) {
   const isTasks = tab === "tasks";
-  els.chatsTabButton.classList.toggle("active", !isTasks);
+  const isWorkspace = tab === "workspace";
+  const isChats = tab === "chats";
+  els.chatsTabButton.classList.toggle("active", isChats);
   els.tasksTabButton.classList.toggle("active", isTasks);
-  els.chatsTabView.classList.toggle("active", !isTasks);
+  els.workspaceTabButton.classList.toggle("active", isWorkspace);
+  els.chatsTabView.classList.toggle("active", isChats);
   els.tasksTabView.classList.toggle("active", isTasks);
+  els.workspaceTabView.classList.toggle("active", isWorkspace);
 }
 
 function resetDemo() {
   state = structuredClone(seedState);
   currentView = "home";
   normalizeRegistrationState();
+  normalizeWorkspace();
   normalizeConnectedApps();
   normalizeTasks();
   saveState();
@@ -561,6 +640,71 @@ function renderStats() {
   els.openTaskCount.textContent = openTasks.length;
   els.dueTodayCount.textContent = openTasks.filter((task) => task.due === todayIso).length;
   els.reminderCount.textContent = openTasks.filter((task) => task.reminderAt && !task.remindedAt).length;
+}
+
+function renderWorkspace() {
+  if (!els.workspaceName) return;
+  normalizeWorkspace();
+  const inviteLink = getWorkspaceInviteLink();
+  els.workspaceName.textContent = state.workspace.name;
+  els.workspaceRole.textContent = state.workspace.role || "Admin";
+  els.workspaceCompanyName.value = state.workspace.name;
+  els.workspaceDomain.value = state.workspace.domain;
+  els.workspaceInviteLink.value = inviteLink;
+  els.employeeJoinCode.value ||= state.workspace.inviteCode;
+  els.employeeCount.textContent = `${state.workspace.employees.length} ${state.workspace.employees.length === 1 ? "person" : "people"}`;
+
+  els.employeeOptions.innerHTML = "";
+  ["Me", state.workspace.name, ...state.workspace.employees.map((employee) => employee.name)].forEach((name) => {
+    if (!name) return;
+    const option = document.createElement("option");
+    option.value = name;
+    els.employeeOptions.append(option);
+  });
+
+  els.employeeList.innerHTML = "";
+  state.workspace.employees.forEach((employee) => {
+    const row = document.createElement("article");
+    row.className = "employee-card";
+    row.innerHTML = `
+      <span class="employee-avatar">${escapeHtml(getInitials(employee.name))}</span>
+      <div>
+        <strong>${escapeHtml(employee.name)}</strong>
+        <span>${escapeHtml(employee.email || "No email added")}</span>
+      </div>
+      <span class="pill">${escapeHtml(employee.role || "Employee")}</span>
+    `;
+    row.addEventListener("click", () => openEmployeeChat(employee));
+    els.employeeList.append(row);
+  });
+}
+
+function openEmployeeChat(employee) {
+  const existing = state.conversations.find((conversation) => conversation.employeeId === employee.id || conversation.name === employee.name);
+  if (existing) {
+    state.activeId = existing.id;
+  } else {
+    const id = createId("chat");
+    state.conversations.unshift({
+      id,
+      employeeId: employee.id,
+      name: employee.name,
+      status: `${employee.role || "Employee"} in ${state.workspace.name}`,
+      avatar: `https://source.unsplash.com/160x160/?employee,portrait&sig=${encodeURIComponent(employee.id)}`,
+      messages: [
+        {
+          id: createId("m"),
+          sender: "them",
+          text: `${employee.name} is ready in ${state.workspace.name}. Assign a task or start a chat.`,
+          time: formatTime()
+        }
+      ]
+    });
+    state.activeId = id;
+  }
+  currentView = "chat";
+  saveState();
+  render();
 }
 
 function renderConversations() {
@@ -1290,6 +1434,100 @@ function getInviteText(inviteLink) {
   return `Join me on TodoMessenger: ${inviteLink}`;
 }
 
+function getWorkspaceInviteLink() {
+  const code = encodeURIComponent(state.workspace.inviteCode);
+  const company = encodeURIComponent(state.workspace.name);
+  return `https://todomessenger.example/workspace/join?company=${company}&code=${code}`;
+}
+
+function getWorkspaceInviteText() {
+  return `Join ${state.workspace.name} on TodoMessenger with invite code ${state.workspace.inviteCode}: ${getWorkspaceInviteLink()}`;
+}
+
+async function copyWorkspaceInvite() {
+  try {
+    await navigator.clipboard.writeText(getWorkspaceInviteText());
+    els.workspaceInviteStatus.textContent = "Workspace invite copied.";
+  } catch {
+    els.workspaceInviteLink.select();
+    document.execCommand("copy");
+    els.workspaceInviteStatus.textContent = "Invite link selected and copied.";
+  }
+}
+
+async function shareWorkspaceInvite() {
+  const shareData = {
+    title: `Join ${state.workspace.name}`,
+    text: getWorkspaceInviteText(),
+    url: getWorkspaceInviteLink()
+  };
+
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      els.workspaceInviteStatus.textContent = "Workspace invite shared.";
+    } catch {
+      els.workspaceInviteStatus.textContent = "Sharing was cancelled.";
+    }
+    return;
+  }
+
+  await copyWorkspaceInvite();
+}
+
+function joinWorkspaceFromInvite() {
+  const name = els.employeeJoinName.value.trim();
+  const email = els.employeeJoinEmail.value.trim();
+  const code = els.employeeJoinCode.value.trim().toUpperCase();
+  if (!name) return;
+  if (code !== state.workspace.inviteCode.toUpperCase()) {
+    els.employeeJoinCode.setCustomValidity("Invite code does not match this workspace.");
+    els.employeeJoinCode.reportValidity();
+    return;
+  }
+
+  els.employeeJoinCode.setCustomValidity("");
+  const existing = state.workspace.employees.find((employee) => (
+    employee.email && email && employee.email.toLowerCase() === email.toLowerCase()
+  ));
+  if (existing) {
+    existing.name = name;
+    existing.role ||= "Employee";
+  } else {
+    state.workspace.employees.push({
+      id: createId("emp"),
+      name,
+      email,
+      role: "Employee",
+      joinedAt: new Date().toISOString()
+    });
+  }
+  addWorkspaceAnnouncement(`${name} joined ${state.workspace.name}.`);
+  els.employeeJoinForm.reset();
+  els.employeeJoinCode.value = state.workspace.inviteCode;
+  saveState();
+  renderWorkspace();
+  renderConversations();
+}
+
+function addWorkspaceAnnouncement(text) {
+  const conversation = state.conversations.find((item) => item.id === "launch") || state.conversations[0];
+  conversation.messages.push({
+    id: createId("m"),
+    sender: "them",
+    text,
+    time: formatTime()
+  });
+}
+
+function createWorkspaceInviteCode() {
+  return `TM-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+function normalizeDomain(value) {
+  return value.trim().replace(/^@/, "").toLowerCase();
+}
+
 function normalizePhoneNumber(value) {
   return value.replace(/[^\d]/g, "");
 }
@@ -1319,6 +1557,15 @@ function formatFileSize(bytes = 0) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getInitials(name = "") {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "TM";
 }
 
 function escapeHtml(value) {

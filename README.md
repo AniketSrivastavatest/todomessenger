@@ -31,6 +31,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - WhatsApp Web-style desktop layout with recent chats on the left and the active conversation on the right.
 - Mobile keeps WhatsApp-style navigation with a clean recent chats home screen and a separate chat screen.
 - BBM Messenger-inspired visual palette with blue accents and charcoal details.
+- Company workspace tab with employee invite links, invite-code joining, employee list, and employee chats.
 - Active chat screen with message history, back navigation, call/video/more actions, and a message composer.
 - Browser-side AES-GCM message encryption before messages are stored in local demo state.
 - `@blu` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
