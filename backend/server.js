@@ -316,7 +316,8 @@ function registerPushToken(body) {
 
 async function sendTestPush(body) {
   const store = readStore();
-  const token = body.token || store.pushTokens.find((item) => item.userId === (body.userId || "demo-user"))?.token;
+  const token = body.token ||
+    (body.userId ? store.pushTokens.find((item) => item.userId === body.userId)?.token : store.pushTokens[0]?.token);
   if (!token) {
     throw new Error("No push token registered for this user.");
   }
