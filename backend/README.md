@@ -4,7 +4,7 @@ This is the first backend layer for TodoMessenger integrations.
 
 It adds:
 
-- OpenAI-powered `@chatgpt` backend endpoint.
+- OpenAI-powered Blu backend endpoint.
 - OpenAI-powered task suggestion endpoint for recent chat context, including suggested assignees.
 - OAuth start/callback routes for Asana and Jira.
 - Local development token storage in `backend/data/store.json`.
@@ -42,7 +42,7 @@ GET  /oauth/asana/callback
 GET  /oauth/jira/start
 GET  /oauth/jira/callback
 GET  /api/integrations
-POST /api/ai/chatgpt
+POST /api/ai/blu
 POST /api/ai/suggest-tasks
 POST /api/sync/asana/task
 POST /api/sync/jira/issue
@@ -50,10 +50,10 @@ POST /api/sync/jira/issue
 
 ## AI setup
 
-Set `OPENAI_API_KEY` in `backend/.env`. The frontend sends `@chatgpt` prompts to:
+Set `OPENAI_API_KEY` in `backend/.env`. The frontend sends `@blu` prompts to:
 
 ```text
-POST /api/ai/chatgpt
+POST /api/ai/blu
 ```
 
 The OpenAI API key must stay on the backend. Do not put it in browser code.

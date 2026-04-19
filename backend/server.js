@@ -67,9 +67,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "POST" && url.pathname === "/api/ai/chatgpt") {
+    if (req.method === "POST" && ["/api/ai/blu", "/api/ai/chatgpt"].includes(url.pathname)) {
       const body = await readJson(req);
-      sendJson(res, 200, await askChatGPT(body));
+      sendJson(res, 200, await askBlu(body));
       return;
     }
 
@@ -213,7 +213,7 @@ async function createAsanaTask(body) {
   );
 }
 
-async function askChatGPT(body) {
+async function askBlu(body) {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Missing OPENAI_API_KEY.");
   }
@@ -225,7 +225,7 @@ async function askChatGPT(body) {
     JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
       instructions:
-        "You are ChatGPT inside TodoMessenger. Answer clearly and concisely. If the user asks for a task, suggest a short actionable task title.",
+        "You are Blu, the AI assistant inside TodoMessenger. Answer clearly and concisely. If the user asks for a task, suggest a short actionable task title.",
       input: `${context}\n\nUser request:\n${prompt}`,
       max_output_tokens: 700
     }),

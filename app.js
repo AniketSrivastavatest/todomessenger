@@ -295,9 +295,9 @@ els.messageForm.addEventListener("submit", async (event) => {
   if (text.toLowerCase().startsWith("/todo ")) {
     addTask(text.slice(6).trim(), "", "normal", "Me");
     await addMessage(`Task added: ${text.slice(6).trim()}`);
-  } else if (text.toLowerCase().startsWith("@chatgpt")) {
+  } else if (/^@(blu|chatgpt)\b/i.test(text)) {
     await addMessage(text);
-    await answerWithChatGPT(text.replace(/^@chatgpt/i, "").trim());
+    await answerWithBlu(text.replace(/^@(blu|chatgpt)\b/i, "").trim());
   } else {
     await addMessage(text);
   }
@@ -710,14 +710,14 @@ function formatApiError(error) {
   }
 }
 
-async function answerWithChatGPT(prompt) {
+async function answerWithBlu(prompt) {
   const question = prompt || "Tell me what you can help with in this chat.";
   await addMessage("Thinking...", "them");
   const conversation = getActiveConversation();
   const thinkingMessage = conversation.messages.at(-1);
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/ai/chatgpt`, {
+    const response = await fetch(`${getBackendUrl()}/api/ai/blu`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -732,7 +732,7 @@ async function answerWithChatGPT(prompt) {
     thinkingMessage.encrypted = await encryptText(data.answer);
   } catch (error) {
     thinkingMessage.encrypted = await encryptText(
-      `I could not reach the AI backend yet. Check OPENAI_API_KEY on Render and redeploy the backend. (${formatApiError(error.message || error)})`
+      `Blu could not reach the AI backend yet. Check OPENAI_API_KEY on Render and redeploy the backend. (${formatApiError(error.message || error)})`
     );
   }
 

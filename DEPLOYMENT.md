@@ -70,7 +70,7 @@ JIRA_PROJECT_KEY=
 After backend deployment and frontend config update, open a chat and send:
 
 ```text
-@chatgpt explain how TodoMessenger works
+@blu explain how TodoMessenger works
 ```
 
 ## 5. Configure OAuth redirects

@@ -33,7 +33,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 - BBM Messenger-inspired visual palette with blue accents and charcoal details.
 - Active chat screen with message history, back navigation, call/video/more actions, and a message composer.
 - Browser-side AES-GCM message encryption before messages are stored in local demo state.
-- `@chatgpt` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
+- `@blu` mention flow that calls the backend AI endpoint when `OPENAI_API_KEY` is configured.
 - AI task suggestions that read recent decrypted messages only after the user taps the suggestion button.
 - Separate Tasks tab for adding and managing to-dos without cluttering the chat screen.
 - Assign tasks to yourself, a contact, or a team from manual, chat-based, and AI-suggested task flows.
@@ -53,7 +53,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 1. Add authentication and user profiles.
 2. Replace `localStorage` with a backend API.
 3. Add realtime messaging through WebSockets or a hosted realtime service.
-4. Configure `OPENAI_API_KEY` for live `@chatgpt` answers.
+4. Configure `OPENAI_API_KEY` for live `@blu` answers.
 5. Configure the backend OAuth apps for Asana and Jira.
 6. Replace the development token store with an encrypted database.
 7. Replace demo encryption with true multi-device E2EE key exchange.

@@ -64,7 +64,7 @@ The app supports recent chats, private chat screens, task tabs, task assignment,
 
 - Add a public privacy policy URL to the Play Console.
 - Confirm the Render backend URL is reachable from Android devices.
-- Confirm OpenAI billing/quota before advertising AI chat features.
+- Confirm OpenAI billing/quota before advertising Blu AI chat features.
 - Replace demo/sample data with real account-backed data before public launch.
 - Test login, chats, tasks, invite flow, file picker, and AI task suggestion on at least one real Android device.
 - Upload screenshots for phone, 7-inch tablet, and 10-inch tablet if you want broader device coverage.

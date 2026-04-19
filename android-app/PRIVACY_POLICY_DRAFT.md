@@ -10,7 +10,7 @@ TodoMessenger may process account details, chat messages, tasks, assignees, invi
 
 ## AI Features
 
-When a user asks for AI help, such as using `@chatgpt` or asking the app to suggest tasks, selected chat or task context may be sent to the TodoMessenger backend and then to an AI provider to generate a response.
+When a user asks Blu for AI help, such as using `@blu` or asking the app to suggest tasks, selected chat or task context may be sent to the TodoMessenger backend and then to an AI provider to generate a response.
 
 ## Contact And Invite Features
 
