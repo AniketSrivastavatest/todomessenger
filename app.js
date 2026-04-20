@@ -1222,8 +1222,8 @@ function createMcpManifest() {
 function getBackendUrl() {
   return (
     localStorage.getItem("taskchat-backend-url") ||
-    (window.location.protocol === "file:" ? "http://localhost:8787" : "") ||
     window.TODOMESSENGER_CONFIG?.backendUrl ||
+    (window.location.protocol === "file:" ? "http://localhost:8787" : "") ||
     "http://localhost:8787"
   );
 }
