@@ -14,5 +14,9 @@
     "whatsapp",
     "mcp"
   ],
+  "dependencies": {
+    "pg": "^8.13.1",
+    "ws": "^8.18.0"
+  },
   "license": "UNLICENSED"
 }

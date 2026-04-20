@@ -2,6 +2,8 @@
 
 A lightweight WhatsApp-style messaging prototype with to-do tasks integrated into each conversation.
 
+Production work has started with a PostgreSQL schema and email-auth backend contracts. See `PRODUCTION.md`.
+
 ## Run it
 
 Open `index.html` in a browser. No build step is needed.
@@ -27,7 +29,7 @@ For the full frontend/backend deployment flow, see `DEPLOYMENT.md`.
 ## What is included
 
 - Conversation list with search across people, groups, and task text.
-- WhatsApp-style registration flow with phone entry, verification code, and profile setup.
+- Email-first registration flow with work email and profile setup.
 - WhatsApp Web-style desktop layout with recent chats on the left and the active conversation on the right.
 - Mobile keeps WhatsApp-style navigation with a clean recent chats home screen and a separate chat screen.
 - BBM Messenger-inspired visual palette with blue accents and charcoal details.

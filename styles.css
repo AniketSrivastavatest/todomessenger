@@ -311,6 +311,17 @@ h2 {
   min-height: 48px;
 }
 
+.dev-code-button {
+  background: #eaf7ff;
+  border: 1px solid rgba(0, 140, 207, 0.28);
+  border-radius: 8px;
+  color: var(--green-dark);
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
 .helper-text,
 .verify-target {
   color: var(--muted);
@@ -508,7 +519,7 @@ select:focus {
   cursor: pointer;
   display: grid;
   gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   padding: 10px;
 }
 
@@ -540,6 +551,25 @@ select:focus {
   color: var(--muted);
   font-size: 0.78rem;
   margin-top: 2px;
+}
+
+.employee-card > .pill,
+.employee-card > .availability-toggle {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.available-pill {
+  color: #0f5132;
+}
+
+.unavailable-pill {
+  color: #8a4b00;
+}
+
+.availability-toggle {
+  padding-inline: 0.75rem;
+  white-space: nowrap;
 }
 
 .software-card {
@@ -905,6 +935,52 @@ select:focus {
   padding: 0;
 }
 
+.message.task-message {
+  max-width: min(420px, 88%);
+}
+
+.inline-task-card {
+  background: #f8fbfd;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.inline-task-card.high {
+  border-left-color: var(--coral);
+}
+
+.inline-task-card.low {
+  border-left-color: #00a3e0;
+}
+
+.inline-task-card .eyebrow {
+  margin: 0;
+}
+
+.inline-task-card strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.inline-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inline-task-meta span {
+  background: var(--cyan);
+  border-radius: 999px;
+  color: #116068;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 5px 8px;
+}
+
 .composer {
   align-items: center;
   background: white;
@@ -1045,6 +1121,55 @@ select:focus {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: space-between;
+}
+
+.assignment-fallback {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  font-size: 0.85rem;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.assignment-fallback button {
+  flex: 0 0 auto;
+}
+
+.task-toast {
+  background: #062f4f;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: 0 14px 38px rgba(6, 47, 79, 0.28);
+  color: white;
+  display: grid;
+  gap: 4px;
+  left: 50%;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 12px 14px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: max-content;
+  z-index: 50;
+}
+
+.task-toast[hidden] {
+  display: none;
+}
+
+.task-toast strong,
+.task-toast span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.task-toast span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.84rem;
 }
 
 .pill {
@@ -1366,6 +1491,21 @@ textarea {
   .ghost-button,
   .task-header select {
     min-height: 42px;
+  }
+
+  .employee-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .employee-card > .pill,
+  .employee-card > .availability-toggle {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .assignment-fallback {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .message {

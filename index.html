@@ -13,40 +13,32 @@
         <div class="phone-body">
           <header class="registration-header">
             <p class="eyebrow">TodoMessenger</p>
-            <h1 id="registrationTitle">Enter your phone number</h1>
-            <p id="registrationCopy">TodoMessenger will need to verify your phone number before opening your chats and tasks.</p>
+            <h1 id="registrationTitle">Enter your work email</h1>
+            <p id="registrationCopy">Use your company email to join TodoMessenger and open your chats and tasks.</p>
           </header>
 
           <ol class="registration-steps" aria-label="Registration progress">
-            <li class="active" data-step-dot="phone">Phone</li>
+            <li class="active" data-step-dot="email">Email</li>
             <li data-step-dot="verify">Verify</li>
             <li data-step-dot="profile">Profile</li>
           </ol>
 
-          <form class="registration-form active" id="phoneForm">
-            <label for="countryCode">Country</label>
-            <select id="countryCode">
-              <option value="+33">France (+33)</option>
-              <option value="+1">United States (+1)</option>
-              <option value="+44">United Kingdom (+44)</option>
-              <option value="+234">Nigeria (+234)</option>
-              <option value="+91">India (+91)</option>
-            </select>
-
-            <label for="phoneNumber">Phone number</label>
-            <input id="phoneNumber" inputmode="tel" autocomplete="tel" required placeholder="6 12 34 56 78">
-            <p class="helper-text">Carrier SMS is not sent in this prototype. A demo code appears on the next screen.</p>
-
+          <form class="registration-form active" id="emailForm">
+            <label for="workEmail">Work email</label>
+            <input id="workEmail" type="email" autocomplete="email" required placeholder="you@company.com">
+            <p class="helper-text">Company email replaces OTP in this prototype. Team SSO can be added later for production.</p>
             <button class="primary-button" type="submit">Next</button>
           </form>
 
           <form class="registration-form" id="verifyForm">
             <p class="verify-target" id="verifyTarget"></p>
-            <label for="verificationCode">6-digit code</label>
-            <input id="verificationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
-            <p class="helper-text" id="demoCodeText"></p>
-            <button class="primary-button" type="submit">Verify</button>
-            <button class="text-button" id="editPhoneButton" type="button">Edit number</button>
+            <label for="emailCode">Email code</label>
+            <input id="emailCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
+            <p class="helper-text" id="demoCodeText">Check your email for the code.</p>
+            <button class="dev-code-button" id="useDevCodeButton" type="button" hidden>Use local code</button>
+            <button class="primary-button" type="submit">Verify email</button>
+            <button class="ghost-button" id="resendEmailCodeButton" type="button">Resend code</button>
+            <button class="text-button" id="editEmailButton" type="button">Edit email</button>
           </form>
 
           <form class="registration-form" id="profileForm">
@@ -354,6 +346,27 @@
       </section>
     </dialog>
 
+    <dialog id="assignmentFallbackDialog">
+      <section class="dialog-card">
+        <header>
+          <div>
+            <p class="eyebrow">Assignee unavailable</p>
+            <h2 id="assignmentFallbackTitle">Send task message</h2>
+          </div>
+          <button class="icon-button" id="closeAssignmentFallbackDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text" id="assignmentFallbackMeta">This person is not active on TodoMessenger yet.</p>
+        <textarea id="assignmentFallbackMessage" readonly rows="5"></textarea>
+        <div class="share-grid">
+          <button class="primary-button" id="shareAssignmentFallbackButton" type="button">Share message</button>
+          <button class="ghost-button" id="copyAssignmentFallbackButton" type="button">Copy message</button>
+          <a class="share-button email" id="emailAssignmentFallbackLink">Email</a>
+          <a class="share-button whatsapp" id="whatsappAssignmentFallbackLink" target="_blank" rel="noreferrer">WhatsApp</a>
+        </div>
+        <p class="helper-text" id="assignmentFallbackStatus">Message ready.</p>
+      </section>
+    </dialog>
+
     <dialog id="shareImportDialog">
       <section class="dialog-card wide-dialog">
         <header>
@@ -461,6 +474,7 @@
     </dialog>
 
     <datalist id="employeeOptions"></datalist>
+    <div class="task-toast" id="taskToast" role="status" aria-live="polite" hidden></div>
 
     <script src="app-config.js"></script>
     <script src="app.js"></script>

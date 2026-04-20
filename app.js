@@ -4,9 +4,11 @@ const maxInlineAttachmentBytes = 2_000_000;
 const seedState = {
   activeId: "launch",
   registration: {
-    step: "phone",
-    pendingPhone: "",
-    verificationCode: "",
+    step: "email",
+    pendingEmail: "",
+    pendingCode: "",
+    demoCode: "",
+    sessionToken: "",
     user: null
   },
   workspace: {
@@ -24,8 +26,8 @@ const seedState = {
       { id: "slack", name: "Slack", type: "Chat", enabled: false }
     ],
     employees: [
-      { id: "emp_maia", name: "Maia Chen", email: "maia@acme.com", role: "Manager", joinedAt: "2026-04-19T09:00:00.000Z" },
-      { id: "emp_nina", name: "Nina Patel", email: "nina@acme.com", role: "Employee", joinedAt: "2026-04-19T09:10:00.000Z" }
+      { id: "emp_maia", name: "Maia Chen", email: "maia@acme.com", role: "Manager", available: true, joinedAt: "2026-04-19T09:00:00.000Z" },
+      { id: "emp_nina", name: "Nina Patel", email: "nina@acme.com", role: "Employee", available: true, joinedAt: "2026-04-19T09:10:00.000Z" }
     ]
   },
   connectedApps: [
@@ -81,11 +83,21 @@ let currentView = "home";
 let encryptionKey;
 let activeReminderTaskId = "";
 let nativePushRegistration;
+let activeFallbackTaskId = "";
+let taskToastTimer;
+let realtimeSocket;
+let realtimeReconnectTimer;
+let backendSyncInFlight = false;
 
 const els = {
   activeAvatar: document.querySelector("#activeAvatar"),
   activeName: document.querySelector("#activeName"),
   activeStatus: document.querySelector("#activeStatus"),
+  assignmentFallbackDialog: document.querySelector("#assignmentFallbackDialog"),
+  assignmentFallbackMessage: document.querySelector("#assignmentFallbackMessage"),
+  assignmentFallbackMeta: document.querySelector("#assignmentFallbackMeta"),
+  assignmentFallbackStatus: document.querySelector("#assignmentFallbackStatus"),
+  assignmentFallbackTitle: document.querySelector("#assignmentFallbackTitle"),
   attachButton: document.querySelector("#attachButton"),
   attachmentInput: document.querySelector("#attachmentInput"),
   backToChatsButton: document.querySelector("#backToChatsButton"),
@@ -95,15 +107,16 @@ const els = {
   chatsTabButton: document.querySelector("#chatsTabButton"),
   chatsTabView: document.querySelector("#chatsTabView"),
   closeInviteDialog: document.querySelector("#closeInviteDialog"),
+  closeAssignmentFallbackDialog: document.querySelector("#closeAssignmentFallbackDialog"),
   closeMcpDialog: document.querySelector("#closeMcpDialog"),
   closeQuickTaskDialog: document.querySelector("#closeQuickTaskDialog"),
   contactSyncDialog: document.querySelector("#contactSyncDialog"),
   connectedApps: document.querySelector("#connectedApps"),
+  copyAssignmentFallbackButton: document.querySelector("#copyAssignmentFallbackButton"),
   copyInviteButton: document.querySelector("#copyInviteButton"),
-  countryCode: document.querySelector("#countryCode"),
   customMcpForm: document.querySelector("#customMcpForm"),
-  demoCodeText: document.querySelector("#demoCodeText"),
-  editPhoneButton: document.querySelector("#editPhoneButton"),
+  emailAssignmentFallbackLink: document.querySelector("#emailAssignmentFallbackLink"),
+  emailForm: document.querySelector("#emailForm"),
   emailShareLink: document.querySelector("#emailShareLink"),
   employeeCount: document.querySelector("#employeeCount"),
   employeeJoinCode: document.querySelector("#employeeJoinCode"),
@@ -115,6 +128,8 @@ const els = {
   conversationList: document.querySelector("#conversationList"),
   copyWorkspaceInviteButton: document.querySelector("#copyWorkspaceInviteButton"),
   dueTodayCount: document.querySelector("#dueTodayCount"),
+  editEmailButton: document.querySelector("#editEmailButton"),
+  emailCode: document.querySelector("#emailCode"),
   appShell: document.querySelector("#appShell"),
   instagramShareLink: document.querySelector("#instagramShareLink"),
   importSourceChips: document.querySelector("#importSourceChips"),
@@ -142,8 +157,6 @@ const els = {
   notificationButton: document.querySelector("#notificationButton"),
   notificationStatus: document.querySelector("#notificationStatus"),
   openTaskCount: document.querySelector("#openTaskCount"),
-  phoneForm: document.querySelector("#phoneForm"),
-  phoneNumber: document.querySelector("#phoneNumber"),
   profileAbout: document.querySelector("#profileAbout"),
   profileForm: document.querySelector("#profileForm"),
   profileName: document.querySelector("#profileName"),
@@ -164,9 +177,11 @@ const els = {
   reminderDialog: document.querySelector("#reminderDialog"),
   reminderMeta: document.querySelector("#reminderMeta"),
   reminderTitle: document.querySelector("#reminderTitle"),
+  resendEmailCodeButton: document.querySelector("#resendEmailCodeButton"),
   roleViewSelect: document.querySelector("#roleViewSelect"),
   shareImportDialog: document.querySelector("#shareImportDialog"),
   shareImportText: document.querySelector("#shareImportText"),
+  shareAssignmentFallbackButton: document.querySelector("#shareAssignmentFallbackButton"),
   shareStatus: document.querySelector("#shareStatus"),
   shareToTaskButton: document.querySelector("#shareToTaskButton"),
   showPinnedTasks: document.querySelector("#showPinnedTasks"),
@@ -184,13 +199,14 @@ const els = {
   taskReminderAt: document.querySelector("#taskReminderAt"),
   taskSuggestionList: document.querySelector("#taskSuggestionList"),
   taskTitle: document.querySelector("#taskTitle"),
+  taskToast: document.querySelector("#taskToast"),
   tasksTabButton: document.querySelector("#tasksTabButton"),
   tasksTabView: document.querySelector("#tasksTabView"),
-  verificationCode: document.querySelector("#verificationCode"),
-  verifyForm: document.querySelector("#verifyForm"),
-  verifyTarget: document.querySelector("#verifyTarget"),
+  useDevCodeButton: document.querySelector("#useDevCodeButton"),
   videoCallButton: document.querySelector("#videoCallButton"),
   voiceCallButton: document.querySelector("#voiceCallButton"),
+  verifyForm: document.querySelector("#verifyForm"),
+  verifyTarget: document.querySelector("#verifyTarget"),
   closeShareImportDialog: document.querySelector("#closeShareImportDialog"),
   dismissReminderButton: document.querySelector("#dismissReminderButton"),
   nativeShareButton: document.querySelector("#nativeShareButton"),
@@ -198,7 +214,9 @@ const els = {
   saveShareToChatButton: document.querySelector("#saveShareToChatButton"),
   shareWorkspaceInviteButton: document.querySelector("#shareWorkspaceInviteButton"),
   suggestTasksButton: document.querySelector("#suggestTasksButton"),
+  whatsappAssignmentFallbackLink: document.querySelector("#whatsappAssignmentFallbackLink"),
   whatsappShareLink: document.querySelector("#whatsappShareLink"),
+  workEmail: document.querySelector("#workEmail"),
   workspaceCompanyName: document.querySelector("#workspaceCompanyName"),
   workspaceDomain: document.querySelector("#workspaceDomain"),
   workspaceForm: document.querySelector("#workspaceForm"),
@@ -212,67 +230,71 @@ const els = {
 
 normalizeRegistrationState();
 normalizeWorkspace();
+normalizeConversations();
 normalizeConnectedApps();
 normalizeTasks();
 bootstrap();
 
-els.phoneForm.addEventListener("submit", (event) => {
+els.emailForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const localNumber = normalizePhoneNumber(els.phoneNumber.value);
-  if (localNumber.length < 6) {
-    els.phoneNumber.setCustomValidity("Enter a valid phone number.");
-    els.phoneNumber.reportValidity();
+  const email = els.workEmail.value.trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    els.workEmail.setCustomValidity("Enter a valid work email.");
+    els.workEmail.reportValidity();
     return;
   }
 
-  els.phoneNumber.setCustomValidity("");
-  state.registration.pendingPhone = `${els.countryCode.value} ${localNumber}`;
-  state.registration.verificationCode = createVerificationCode();
-  state.registration.step = "verify";
-  saveState();
-  renderRegistration();
-  els.verificationCode.focus();
+  els.workEmail.setCustomValidity("");
+  await startEmailRegistration(email);
 });
 
 els.verifyForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  if (els.verificationCode.value.trim() !== state.registration.verificationCode) {
-    els.verificationCode.setCustomValidity("That code does not match.");
-    els.verificationCode.reportValidity();
+  const code = els.emailCode.value.trim();
+  if (!/^\d{6}$/.test(code)) {
+    els.emailCode.setCustomValidity("Enter the 6-digit email code.");
+    els.emailCode.reportValidity();
     return;
   }
 
-  els.verificationCode.setCustomValidity("");
-  state.registration.step = "profile";
-  saveState();
-  renderRegistration();
-  els.profileName.focus();
+  els.emailCode.setCustomValidity("");
+  state.registration.pendingCode = code;
+  verifyEmailCode();
 });
 
-els.editPhoneButton.addEventListener("click", () => {
-  state.registration.step = "phone";
-  state.registration.verificationCode = "";
+els.editEmailButton.addEventListener("click", () => {
+  state.registration.step = "email";
+  state.registration.pendingCode = "";
+  state.registration.demoCode = "";
   saveState();
   renderRegistration();
-  els.phoneNumber.focus();
+  els.workEmail.focus();
+});
+els.resendEmailCodeButton.addEventListener("click", async () => {
+  if (!state.registration.pendingEmail) {
+    state.registration.step = "email";
+    renderRegistration();
+    els.workEmail.focus();
+    return;
+  }
+  await startEmailRegistration(state.registration.pendingEmail);
+});
+els.emailCode.addEventListener("input", () => {
+  els.emailCode.setCustomValidity("");
+});
+els.useDevCodeButton.addEventListener("click", () => {
+  if (!state.registration.demoCode) return;
+  els.emailCode.value = state.registration.demoCode;
+  els.emailCode.setCustomValidity("");
+  els.emailCode.focus();
 });
 
-els.profileForm.addEventListener("submit", (event) => {
+els.profileForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = els.profileName.value.trim();
   if (!name) return;
 
-  state.registration.user = {
-    name,
-    about: els.profileAbout.value.trim() || "Available",
-    phone: state.registration.pendingPhone,
-    joinedAt: new Date().toISOString()
-  };
-  state.registration.step = "complete";
-  currentView = "home";
-  saveState();
-  render();
-  sendStoredFcmToken();
+  await completeProfile(name, els.profileAbout.value.trim() || "Available");
 });
 
 els.chatSearch.addEventListener("input", renderConversations);
@@ -313,8 +335,14 @@ els.quickTaskForm.addEventListener("submit", async (event) => {
   const title = els.quickTaskTitle.value.trim();
   if (!title) return;
 
-  addTask(title, els.quickTaskDue.value, els.quickTaskPriority.value, els.quickTaskAssignee.value, els.quickTaskReminderAt.value);
-  await addMessage(`Task added from chat: ${title}`);
+  await createTaskWithFeedback({
+    title,
+    due: els.quickTaskDue.value,
+    priority: els.quickTaskPriority.value,
+    assignee: els.quickTaskAssignee.value,
+    reminderAt: els.quickTaskReminderAt.value,
+    source: "chat"
+  });
   els.quickTaskForm.reset();
   els.quickTaskDialog.close();
 });
@@ -333,6 +361,9 @@ els.openReminderChatButton.addEventListener("click", () => {
   }
   els.reminderDialog.close();
 });
+els.closeAssignmentFallbackDialog.addEventListener("click", () => els.assignmentFallbackDialog.close());
+els.copyAssignmentFallbackButton.addEventListener("click", copyAssignmentFallbackMessage);
+els.shareAssignmentFallbackButton.addEventListener("click", shareAssignmentFallbackMessage);
 
 els.inviteButton.addEventListener("click", openInviteDialog);
 els.closeInviteDialog.addEventListener("click", () => els.inviteDialog.close());
@@ -418,8 +449,14 @@ els.messageForm.addEventListener("submit", async (event) => {
   if (!text) return;
 
   if (text.toLowerCase().startsWith("/todo ")) {
-    addTask(text.slice(6).trim(), "", "normal", "Me");
-    await addMessage(`Task added: ${text.slice(6).trim()}`);
+    await createTaskWithFeedback({
+      title: text.slice(6).trim(),
+      due: "",
+      priority: "normal",
+      assignee: "Me",
+      reminderAt: "",
+      source: "composer"
+    });
   } else if (/^@(blu|chatgpt)\b/i.test(text)) {
     await addMessage(text);
     await answerWithBlu(text.replace(/^@(blu|chatgpt)\b/i, "").trim());
@@ -434,8 +471,14 @@ els.taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const title = els.taskTitle.value.trim();
   if (!title) return;
-  addTask(title, els.taskDue.value, els.taskPriority.value, els.taskAssignee.value, els.taskReminderAt.value);
-  await addMessage(`Task added: ${title}`);
+  await createTaskWithFeedback({
+    title,
+    due: els.taskDue.value,
+    priority: els.taskPriority.value,
+    assignee: els.taskAssignee.value,
+    reminderAt: els.taskReminderAt.value,
+    source: "tasks tab"
+  });
   els.taskForm.reset();
 });
 
@@ -484,7 +527,12 @@ function saveState() {
 
 async function bootstrap() {
   encryptionKey = await loadEncryptionKey();
+  normalizeConversations();
   await normalizeEncryptedMessages();
+  if (isRegistered() && getAuthToken()) {
+    await syncFromBackend();
+    connectRealtime();
+  }
   saveState();
   render();
   renderNotificationStatus();
@@ -496,6 +544,7 @@ async function render() {
   renderRegistration();
   if (!isRegistered()) return;
 
+  normalizeConversations();
   renderView();
   renderConnectedApps();
   renderStats();
@@ -517,13 +566,122 @@ function renderView() {
   els.appShell.dataset.view = currentView;
 }
 
+async function startEmailRegistration(email) {
+  try {
+    els.emailForm.querySelector("button[type='submit']").disabled = true;
+    const response = await fetch(`${getBackendUrl()}/api/auth/email/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(formatApiError(data.error || data));
+    }
+
+    state.registration.pendingEmail = email;
+    state.registration.pendingCode = "";
+    state.registration.demoCode = data.demoCode || "";
+    state.registration.step = "verify";
+    saveState();
+    renderRegistration();
+    if (state.registration.demoCode) {
+      els.emailCode.value = state.registration.demoCode;
+    }
+    els.emailCode.focus();
+  } catch (error) {
+    els.workEmail.setCustomValidity(`Could not start email login. ${formatApiError(error.message || error)}`);
+    els.workEmail.reportValidity();
+  } finally {
+    els.emailForm.querySelector("button[type='submit']").disabled = false;
+  }
+}
+
+async function verifyEmailCode() {
+  try {
+    els.verifyForm.querySelector("button[type='submit']").disabled = true;
+    const response = await fetch(`${getBackendUrl()}/api/auth/email/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: state.registration.pendingEmail,
+        code: state.registration.pendingCode,
+        name: getNameFromEmail(state.registration.pendingEmail)
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(formatApiError(data.error || data));
+    }
+
+    const user = data.user || {};
+    const workspace = data.workspace || {};
+    state.registration.user = {
+      id: user.id || createId("user"),
+      name: user.name || getNameFromEmail(state.registration.pendingEmail),
+      about: "Available",
+      email: user.email || state.registration.pendingEmail,
+      role: user.role || "employee",
+      joinedAt: new Date().toISOString()
+    };
+    state.registration.sessionToken = data.token || "";
+    state.registration.step = "profile";
+    state.workspace.id = workspace.id || state.workspace.id;
+    state.workspace.name = workspace.name || state.workspace.name;
+    state.workspace.domain = workspace.domain || state.workspace.domain;
+    state.workspace.role = toDisplayRole(user.role || state.workspace.role);
+    saveState();
+    renderRegistration();
+    els.profileName.value = state.registration.user.name || "";
+    els.profileName.focus();
+  } catch (error) {
+    state.registration.step = "verify";
+    saveState();
+    renderRegistration();
+    els.emailCode.setCustomValidity(`Could not verify email. ${formatApiError(error.message || error)}`);
+    els.emailCode.reportValidity();
+  } finally {
+    els.verifyForm.querySelector("button[type='submit']").disabled = false;
+  }
+}
+
+async function completeProfile(name, about) {
+  state.registration.user = {
+    ...state.registration.user,
+    name,
+    about
+  };
+  state.registration.step = "complete";
+  currentView = "home";
+  saveState();
+  await syncFromBackend();
+  connectRealtime();
+  render();
+  sendStoredFcmToken();
+}
+
 function normalizeRegistrationState() {
   state.registration ||= structuredClone(seedState.registration);
-  state.registration.step ||= state.registration.user ? "complete" : "phone";
-  state.registration.pendingPhone ||= "";
-  state.registration.verificationCode ||= "";
+  if (state.registration.step === "phone" || state.registration.step === "verify") {
+    state.registration.step = state.registration.pendingEmail ? "verify" : "email";
+  }
+  state.registration.step ||= state.registration.user ? "complete" : "email";
+  state.registration.pendingEmail ||= state.registration.user?.email || "";
+  state.registration.pendingCode ||= "";
+  state.registration.demoCode ||= "";
+  state.registration.sessionToken ||= "";
+  if (state.registration.user && !state.registration.user.email) {
+    state.registration.user = null;
+    state.registration.step = "email";
+  }
   if (state.user && !state.registration.user) {
     state.registration.user = state.user;
+    if (!state.registration.user.email) {
+      state.registration.user = null;
+      state.registration.step = "email";
+      delete state.user;
+      return;
+    }
     state.registration.step = "complete";
     delete state.user;
   }
@@ -547,10 +705,40 @@ function normalizeWorkspace() {
     state.workspace.employees.unshift({
       id: "me",
       name: state.registration.user.name,
-      email: "",
+      email: state.registration.user.email || "",
       role: "Admin",
+      available: true,
       joinedAt: state.registration.user.joinedAt || new Date().toISOString()
     });
+  }
+  state.workspace.employees.forEach((employee) => {
+    employee.available ??= true;
+  });
+}
+
+function normalizeConversations() {
+  if (!Array.isArray(state.conversations) || !state.conversations.length) {
+    state.conversations = structuredClone(seedState.conversations);
+  }
+
+  state.conversations.forEach((conversation, index) => {
+    conversation.id ||= createId("chat");
+    conversation.name ||= index === 0 ? "Launch Squad" : "TodoMessenger";
+    conversation.status ||= "online";
+    conversation.avatar ||= createAvatarDataUrl(conversation.name);
+    conversation.messages ||= [];
+    if (!conversation.messages.length) {
+      conversation.messages.push({
+        id: createId("m"),
+        sender: "them",
+        text: `Welcome to ${conversation.name}. Start chatting or add a task from here.`,
+        time: formatTime()
+      });
+    }
+  });
+
+  if (!state.conversations.some((conversation) => conversation.id === state.activeId)) {
+    state.activeId = state.conversations[0].id;
   }
 }
 
@@ -624,13 +812,13 @@ function renderRegistration() {
   });
 
   const copy = {
-    phone: {
-      title: "Enter your phone number",
-      body: "TodoMessenger will need to verify your phone number before opening your chats and tasks."
+    email: {
+      title: "Enter your work email",
+      body: "Use your company email to join TodoMessenger and open your chats and tasks."
     },
     verify: {
-      title: "Verify your number",
-      body: "Enter the code for this device to confirm it belongs to you."
+      title: "Verify your email",
+      body: "Enter the code created by the backend to continue."
     },
     profile: {
       title: "Set up your profile",
@@ -640,8 +828,15 @@ function renderRegistration() {
 
   els.registrationTitle.textContent = copy[step].title;
   els.registrationCopy.textContent = copy[step].body;
-  els.verifyTarget.textContent = `Code sent to ${state.registration.pendingPhone}`;
-  els.demoCodeText.textContent = `Demo code: ${state.registration.verificationCode || "generate one from the phone step"}`;
+  els.workEmail.value = state.registration.pendingEmail || "";
+  els.verifyTarget.textContent = `Code for ${state.registration.pendingEmail || "your work email"}`;
+  els.demoCodeText.textContent = state.registration.demoCode
+    ? `Local development code: ${state.registration.demoCode}`
+    : "No local code is saved for this attempt. Click Resend code.";
+  els.useDevCodeButton.hidden = !state.registration.demoCode;
+  els.useDevCodeButton.textContent = state.registration.demoCode
+    ? `Use local code ${state.registration.demoCode}`
+    : "Use local code";
 }
 
 function switchTab(tab) {
@@ -723,8 +918,16 @@ function renderWorkspace() {
         <span>${escapeHtml(employee.email || "No email added")}</span>
       </div>
       <span class="pill">${escapeHtml(employee.role || "Employee")}</span>
+      <span class="pill ${employee.available ? "available-pill" : "unavailable-pill"}">${employee.available ? "Available" : "Unavailable"}</span>
+      <button class="ghost-button availability-toggle" type="button">${employee.available ? "Mark away" : "Mark available"}</button>
     `;
     row.addEventListener("click", () => openEmployeeChat(employee));
+    row.querySelector(".availability-toggle").addEventListener("click", (event) => {
+      event.stopPropagation();
+      employee.available = !employee.available;
+      saveState();
+      renderWorkspace();
+    });
     els.employeeList.append(row);
   });
 
@@ -800,13 +1003,16 @@ function renderConversations() {
     button.className = `conversation-item ${conversation.id === state.activeId ? "active" : ""}`;
     button.type = "button";
     button.innerHTML = `
-      <img src="${conversation.avatar}" alt="">
+      <img src="${getConversationAvatar(conversation)}" alt="">
       <span class="conversation-copy">
         <strong>${escapeHtml(conversation.name)}</strong>
         <span>${escapeHtml(latest)}</span>
       </span>
       ${openCount ? `<span class="task-dot">${openCount}</span>` : ""}
     `;
+    button.querySelector("img").addEventListener("error", (event) => {
+      event.currentTarget.src = createAvatarDataUrl(conversation.name);
+    });
     button.addEventListener("click", () => {
       state.activeId = conversation.id;
       currentView = "chat";
@@ -819,7 +1025,18 @@ function renderConversations() {
 
 async function renderActiveChat() {
   const conversation = getActiveConversation();
-  els.activeAvatar.src = conversation.avatar;
+  if (!conversation) {
+    els.activeAvatar.src = createAvatarDataUrl("TodoMessenger");
+    els.activeAvatar.alt = "TodoMessenger avatar";
+    els.activeName.textContent = "TodoMessenger";
+    els.activeStatus.textContent = "Start a chat or add your first task";
+    els.messageStream.innerHTML = `<p class="empty-state">Your workspace is ready. Start a chat from the left panel.</p>`;
+    return;
+  }
+  els.activeAvatar.onerror = () => {
+    els.activeAvatar.src = createAvatarDataUrl(conversation.name);
+  };
+  els.activeAvatar.src = getConversationAvatar(conversation);
   els.activeAvatar.alt = `${conversation.name} avatar`;
   els.activeName.textContent = conversation.name;
   els.activeStatus.textContent = conversation.status;
@@ -839,21 +1056,36 @@ async function renderActiveChat() {
 
   decryptedMessages.forEach((message) => {
     const bubble = document.createElement("article");
-    bubble.className = `message ${message.sender}`;
+    const isTaskCard = Boolean(message.taskCard);
+    bubble.className = `message ${message.sender} ${isTaskCard ? "task-message" : ""}`;
     bubble.innerHTML = `
-      <p>${escapeHtml(message.displayText)}</p>
+      ${isTaskCard ? renderInlineTaskCard(message.taskCard) : `<p>${escapeHtml(message.displayText)}</p>`}
       ${renderMessageAttachments(message.attachments)}
       <footer class="message-footer">
-        <button class="message-task-button" type="button">Add task</button>
+        ${isTaskCard ? "" : `<button class="message-task-button" type="button">Add task</button>`}
         <span class="meta">${escapeHtml(message.time)}</span>
       </footer>
     `;
-    bubble.querySelector(".message-task-button").addEventListener("click", () => {
+    bubble.querySelector(".message-task-button")?.addEventListener("click", () => {
       openQuickTaskDialog(message.displayText, `${conversation.name} message`);
     });
     els.messageStream.append(bubble);
   });
   els.messageStream.scrollTop = els.messageStream.scrollHeight;
+}
+
+function renderInlineTaskCard(task) {
+  return `
+    <section class="inline-task-card ${escapeHtml(task.priority || "normal")}">
+      <p class="eyebrow">Task created</p>
+      <strong>${escapeHtml(task.title || "Untitled task")}</strong>
+      <div class="inline-task-meta">
+        <span>Assigned to ${escapeHtml(task.assignee || "Me")}</span>
+        <span>${task.due ? `Due ${escapeHtml(formatDate(task.due))}` : "No due date"}</span>
+        <span>${escapeHtml(task.priority || "normal")} priority</span>
+      </div>
+    </section>
+  `;
 }
 
 function renderMessageAttachments(attachments = []) {
@@ -977,7 +1209,7 @@ function createMcpManifest() {
     protocol: "mcp",
     app: "TodoMessenger",
     transport: ["todomessenger://mcp", "https://todomessenger.example/mcp"],
-    user: state.registration.user?.phone || "unregistered",
+    user: state.registration.user?.email || "unregistered",
     tools: [
       { name: "create_task", description: "Create a task from a chat, contact, or connected app." },
       { name: "send_message", description: "Send a TodoMessenger message to an existing conversation." },
@@ -990,13 +1222,160 @@ function createMcpManifest() {
 function getBackendUrl() {
   return (
     localStorage.getItem("taskchat-backend-url") ||
+    (window.location.protocol === "file:" ? "http://localhost:8787" : "") ||
     window.TODOMESSENGER_CONFIG?.backendUrl ||
     "http://localhost:8787"
   );
 }
 
+function getAuthToken() {
+  return state.registration?.sessionToken || "";
+}
+
+async function apiFetch(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+  const token = getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch(`${getBackendUrl()}${path}`, {
+    ...options,
+    headers,
+    body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(formatApiError(data.error || data || `HTTP ${response.status}`));
+  }
+  return data;
+}
+
+async function syncFromBackend() {
+  if (!getAuthToken() || backendSyncInFlight) return;
+  backendSyncInFlight = true;
+  try {
+    const [profileData, conversationData, taskData] = await Promise.all([
+      apiFetch("/api/me"),
+      apiFetch("/api/conversations"),
+      apiFetch("/api/tasks")
+    ]);
+    if (profileData.user) {
+      state.registration.user = {
+        ...state.registration.user,
+        ...profileData.user,
+        about: state.registration.user?.about || "Available"
+      };
+      state.workspace.role = toDisplayRole(profileData.user.role || state.workspace.role);
+    }
+    if (profileData.workspace) {
+      state.workspace.id = profileData.workspace.id || state.workspace.id;
+      state.workspace.name = profileData.workspace.name || state.workspace.name;
+      state.workspace.domain = profileData.workspace.domain || state.workspace.domain;
+    }
+    if (Array.isArray(conversationData.conversations) && conversationData.conversations.length) {
+      state.conversations = conversationData.conversations.map(mapBackendConversation);
+      if (!state.conversations.some((conversation) => conversation.id === state.activeId)) {
+        state.activeId = state.conversations[0].id;
+      }
+    }
+    if (Array.isArray(taskData.tasks)) {
+      state.tasks = taskData.tasks.map(mapBackendTask);
+    }
+    saveState();
+  } catch (error) {
+    console.warn("Backend sync unavailable:", error);
+  } finally {
+    backendSyncInFlight = false;
+  }
+}
+
+function connectRealtime() {
+  if (!getAuthToken() || realtimeSocket?.readyState === WebSocket.OPEN) return;
+  if (realtimeReconnectTimer) {
+    window.clearTimeout(realtimeReconnectTimer);
+    realtimeReconnectTimer = null;
+  }
+
+  const backendUrl = new URL(getBackendUrl());
+  backendUrl.protocol = backendUrl.protocol === "https:" ? "wss:" : "ws:";
+  backendUrl.pathname = "/ws";
+  backendUrl.search = `token=${encodeURIComponent(getAuthToken())}`;
+
+  try {
+    realtimeSocket = new WebSocket(backendUrl.toString());
+  } catch {
+    return;
+  }
+
+  realtimeSocket.addEventListener("message", async (event) => {
+    let payload;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (["message.created", "task.created", "task.updated", "conversation.created", "message.reaction", "message.read"].includes(payload.type)) {
+      await syncFromBackend();
+      render();
+    }
+  });
+  realtimeSocket.addEventListener("close", () => {
+    realtimeReconnectTimer = window.setTimeout(connectRealtime, 4000);
+  });
+}
+
+function mapBackendConversation(conversation) {
+  return {
+    id: conversation.id,
+    name: conversation.name || "Workspace chat",
+    status: conversation.status || "workspace chat",
+    avatar: conversation.avatar || createAvatarDataUrl(conversation.name || "Workspace chat"),
+    messages: (conversation.messages || []).map(mapBackendMessage)
+  };
+}
+
+function mapBackendMessage(message) {
+  return {
+    id: message.id,
+    sender: message.sender || "them",
+    text: message.preview || "",
+    preview: message.preview || "",
+    encrypted: parseEncryptedPayload(message.encrypted),
+    attachments: message.attachments || [],
+    reactions: message.reactions || [],
+    readBy: message.readBy || [],
+    time: message.time || formatTime(),
+    createdAt: message.createdAt
+  };
+}
+
+function parseEncryptedPayload(value) {
+  if (!value) return "";
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return "";
+  }
+}
+
+function mapBackendTask(task) {
+  return {
+    ...task,
+    due: task.due || "",
+    done: Boolean(task.done),
+    priority: task.priority || "normal",
+    assignee: task.assignee || "Me",
+    reminderAt: task.reminderAt || "",
+    remindedAt: task.remindedAt || ""
+  };
+}
+
 function getUserId() {
-  return normalizePhoneNumber(state.registration.user?.phone || "demo-user");
+  return normalizeEmailUserId(state.registration.user?.email || "demo-user");
 }
 
 function formatApiError(error) {
@@ -1088,8 +1467,15 @@ function renderTaskSuggestions(tasks) {
       </div>
       <button class="primary-button" type="button">Add</button>
     `;
-    card.querySelector("button").addEventListener("click", () => {
-      addTask(task.title || "Untitled task", task.due || "", task.priority || "normal", task.assignee || "Me");
+    card.querySelector("button").addEventListener("click", async () => {
+      await createTaskWithFeedback({
+        title: task.title || "Untitled task",
+        due: task.due || "",
+        priority: task.priority || "normal",
+        assignee: task.assignee || "Me",
+        reminderAt: "",
+        source: "Blu"
+      });
       card.remove();
     });
     els.taskSuggestionList.append(card);
@@ -1183,6 +1569,13 @@ function renderTasks() {
   }
 
   tasks.forEach((task) => {
+    const fallback = task.assignmentFallback;
+    const fallbackHtml = fallback ? `
+      <div class="assignment-fallback">
+        <span>${escapeHtml(fallback.reason)}</span>
+        <button class="ghost-button assignment-message-button" type="button">Send message</button>
+      </div>
+    ` : "";
     const card = document.createElement("article");
     card.className = `task-card ${task.priority} ${task.done ? "done" : ""}`;
     card.innerHTML = `
@@ -1198,6 +1591,7 @@ function renderTasks() {
         <span class="pill">${escapeHtml(task.priority)} priority</span>
         <button class="delete-button" type="button">Delete</button>
       </footer>
+      ${fallbackHtml}
     `;
 
     card.querySelector("input").addEventListener("change", (event) => {
@@ -1208,6 +1602,7 @@ function renderTasks() {
         schedulePushReminder(task);
       }
       saveState();
+      updateTaskOnBackend(task);
       render();
     });
     card.querySelector(".delete-button").addEventListener("click", () => {
@@ -1216,21 +1611,48 @@ function renderTasks() {
       saveState();
       render();
     });
+    card.querySelector(".assignment-message-button")?.addEventListener("click", () => openAssignmentFallbackDialog(task));
     els.taskList.append(card);
   });
 }
 
 async function addMessage(text, sender = "me", extra = {}) {
-  getActiveConversation().messages.push({
+  const conversation = getActiveConversation();
+  const encrypted = await encryptText(text);
+  const message = {
     id: createId("m"),
     sender,
     preview: text,
-    encrypted: await encryptText(text),
+    encrypted,
     time: formatTime(),
     ...extra
-  });
+  };
+  conversation.messages.push(message);
   saveState();
   render();
+  if (sender === "me" && getAuthToken() && !extra.remote) {
+    syncMessageToBackend(conversation.id, message, text, encrypted, extra);
+  }
+}
+
+async function syncMessageToBackend(conversationId, message, text, encrypted, extra = {}) {
+  try {
+    const data = await apiFetch(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
+      method: "POST",
+      body: {
+        text,
+        preview: text,
+        encryptedBody: JSON.stringify(encrypted),
+        attachments: extra.attachments || []
+      }
+    });
+    if (data.message?.id) {
+      message.id = data.message.id;
+      saveState();
+    }
+  } catch (error) {
+    console.warn("Message saved locally but backend sync failed:", error);
+  }
 }
 
 async function addAttachmentMessage(files) {
@@ -1270,23 +1692,184 @@ async function addSystemMessage(text) {
   await addMessage(text, "them");
 }
 
+function getAssignmentFallback(assignee, title, due) {
+  if (!assignee || assignee.toLowerCase() === "me") return null;
+  if (assignee === state.workspace.name) return null;
+  if (state.conversations.some((conversation) => conversation.name.toLowerCase() === assignee.toLowerCase())) return null;
+
+  const employee = findEmployeeByName(assignee);
+  if (employee?.available) return null;
+
+  const reason = employee
+    ? `${employee.name} is not available on TodoMessenger right now.`
+    : `${assignee} is not in this workspace yet.`;
+
+  return {
+    reason,
+    email: employee?.email || "",
+    message: createAssignmentMessage(assignee, title, due)
+  };
+}
+
+function findEmployeeByName(name) {
+  const target = name.trim().toLowerCase();
+  return state.workspace.employees.find((employee) => employee.name.toLowerCase() === target);
+}
+
+function createAssignmentMessage(assignee, title, due) {
+  const dueText = due ? ` Due: ${formatDate(due)}.` : "";
+  return `Hi ${assignee}, you have been assigned a TodoMessenger task: ${title}.${dueText} Please join the workspace or reply here so the team can track it.`;
+}
+
+function openAssignmentFallbackDialog(task) {
+  if (!task?.assignmentFallback) return;
+  activeFallbackTaskId = task.id;
+  const fallback = task.assignmentFallback;
+  els.assignmentFallbackTitle.textContent = `Message ${task.assignee}`;
+  els.assignmentFallbackMeta.textContent = fallback.reason;
+  els.assignmentFallbackMessage.value = fallback.message;
+  els.assignmentFallbackStatus.textContent = "Message ready.";
+  els.emailAssignmentFallbackLink.href = `mailto:${encodeURIComponent(fallback.email || "")}?subject=${encodeURIComponent(`Task assigned: ${task.title}`)}&body=${encodeURIComponent(fallback.message)}`;
+  els.whatsappAssignmentFallbackLink.href = `https://wa.me/?text=${encodeURIComponent(fallback.message)}`;
+  if (!els.assignmentFallbackDialog.open) {
+    els.assignmentFallbackDialog.showModal();
+  }
+}
+
+async function copyAssignmentFallbackMessage() {
+  const task = state.tasks.find((item) => item.id === activeFallbackTaskId);
+  const message = task?.assignmentFallback?.message || els.assignmentFallbackMessage.value;
+  try {
+    await navigator.clipboard.writeText(message);
+    els.assignmentFallbackStatus.textContent = "Task message copied.";
+  } catch {
+    els.assignmentFallbackMessage.select();
+    document.execCommand("copy");
+    els.assignmentFallbackStatus.textContent = "Task message selected and copied.";
+  }
+}
+
+async function shareAssignmentFallbackMessage() {
+  const task = state.tasks.find((item) => item.id === activeFallbackTaskId);
+  const message = task?.assignmentFallback?.message || els.assignmentFallbackMessage.value;
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: task ? `Task assigned: ${task.title}` : "TodoMessenger task",
+        text: message
+      });
+      els.assignmentFallbackStatus.textContent = "Task message shared.";
+    } catch {
+      els.assignmentFallbackStatus.textContent = "Sharing was cancelled.";
+    }
+    return;
+  }
+
+  await copyAssignmentFallbackMessage();
+  els.assignmentFallbackStatus.textContent = "Native sharing is not available here, so the task message was copied.";
+}
+
+async function createTaskWithFeedback({ title, due = "", priority = "normal", assignee = "Me", reminderAt = "", source = "chat" }) {
+  const task = addTask(title, due, priority, assignee, reminderAt);
+  if (!task) return null;
+  await addTaskCardMessage(task, source);
+  showTaskConfirmation(task);
+  return task;
+}
+
+async function addTaskCardMessage(task, source) {
+  await addMessage(`Task created: ${task.title}`, "me", {
+    taskCard: {
+      id: task.id,
+      title: task.title,
+      assignee: task.assignee,
+      due: task.due,
+      priority: task.priority,
+      source
+    }
+  });
+}
+
+function showTaskConfirmation(task) {
+  if (!els.taskToast) return;
+  clearTimeout(taskToastTimer);
+  els.taskToast.innerHTML = `
+    <strong>Task added</strong>
+    <span>${escapeHtml(task.title)} - ${escapeHtml(task.assignee || "Me")}${task.due ? ` - Due ${escapeHtml(formatDate(task.due))}` : ""}</span>
+  `;
+  els.taskToast.hidden = false;
+  taskToastTimer = setTimeout(() => {
+    els.taskToast.hidden = true;
+  }, 3200);
+}
+
 function addTask(title, due, priority, assignee = "Me", reminderAt = "") {
-  if (!title) return;
+  if (!title) return null;
+  const trimmedAssignee = assignee.trim() || "Me";
+  const assignmentFallback = getAssignmentFallback(trimmedAssignee, title, due);
   const task = {
     id: createId("t"),
     conversationId: state.activeId,
     title,
     due,
     priority,
-    assignee: assignee.trim() || "Me",
+    assignee: trimmedAssignee,
+    assignmentFallback,
     reminderAt,
     remindedAt: "",
     done: false
   };
   state.tasks.unshift(task);
   saveState();
-  render();
   schedulePushReminder(task);
+  syncTaskToBackend(task);
+  if (assignmentFallback) {
+    openAssignmentFallbackDialog(task);
+  }
+  return task;
+}
+
+async function syncTaskToBackend(task) {
+  if (!getAuthToken() || task.backendSynced) return;
+  try {
+    const data = await apiFetch("/api/tasks", {
+      method: "POST",
+      body: {
+        conversationId: task.conversationId,
+        title: task.title,
+        due: task.due,
+        priority: task.priority,
+        assignee: task.assignee,
+        reminderAt: task.reminderAt,
+        assignmentFallback: task.assignmentFallback
+      }
+    });
+    if (data.task?.id) {
+      task.id = data.task.id;
+      task.backendSynced = true;
+      saveState();
+    }
+  } catch (error) {
+    console.warn("Task saved locally but backend sync failed:", error);
+  }
+}
+
+async function updateTaskOnBackend(task) {
+  if (!getAuthToken() || !task.id) return;
+  try {
+    await apiFetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+      method: "PATCH",
+      body: {
+        done: Boolean(task.done),
+        title: task.title,
+        due: task.due,
+        priority: task.priority,
+        reminderAt: task.reminderAt
+      }
+    });
+  } catch (error) {
+    console.warn("Task updated locally but backend sync failed:", error);
+  }
 }
 
 async function requestNotificationPermission() {
@@ -1494,11 +2077,12 @@ async function sendStoredFcmToken() {
 
 function getPushUserId() {
   const user = state.registration.user;
-  if (!user?.phone) return "demo-user";
-  return normalizePhoneNumber(user.phone) || "demo-user";
+  if (!user?.email) return "demo-user";
+  return normalizeEmailUserId(user.email) || "demo-user";
 }
 
 function getActiveConversation() {
+  normalizeConversations();
   return state.conversations.find((conversation) => conversation.id === state.activeId) || state.conversations[0];
 }
 
@@ -1506,17 +2090,28 @@ function getConversationName(conversationId) {
   return state.conversations.find((conversation) => conversation.id === conversationId)?.name || "Chat";
 }
 
+function getConversationAvatar(conversation) {
+  return conversation?.avatar || createAvatarDataUrl(conversation?.name || "TodoMessenger");
+}
+
+function createAvatarDataUrl(name) {
+  const initials = getInitials(name);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+      <rect width="96" height="96" rx="18" fill="#006699"/>
+      <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="32" font-weight="700">${initials}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 function createId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function createVerificationCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 function getInviteLink() {
   const user = state.registration.user;
-  const owner = user?.phone ? normalizePhoneNumber(user.phone) : "demo";
+  const owner = user?.email ? normalizeEmailUserId(user.email) : "demo";
   return `https://todomessenger.example/invite/${owner}`;
 }
 
@@ -1589,6 +2184,7 @@ function joinWorkspaceFromInvite() {
       name,
       email,
       role: "Employee",
+      available: true,
       joinedAt: new Date().toISOString()
     });
   }
@@ -1618,12 +2214,27 @@ function normalizeDomain(value) {
   return value.trim().replace(/^@/, "").toLowerCase();
 }
 
-function normalizePhoneNumber(value) {
-  return value.replace(/[^\d]/g, "");
+function normalizeEmailUserId(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function getNameFromEmail(email) {
+  return String(email || "User").split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function toDisplayRole(role) {
+  const normalized = String(role || "").toLowerCase();
+  if (normalized === "admin") return "Admin";
+  if (normalized === "team_lead") return "Team Lead";
+  return "Employee";
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function stepOrder(step) {
-  return { phone: 1, verify: 2, profile: 3, complete: 4 }[step] || 1;
+  return { email: 1, verify: 2, profile: 3, complete: 4 }[step] || 1;
 }
 
 function formatTime() {
