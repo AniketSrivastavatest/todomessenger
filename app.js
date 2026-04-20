@@ -220,7 +220,9 @@ const els = {
   workspaceCompanyName: document.querySelector("#workspaceCompanyName"),
   workspaceDomain: document.querySelector("#workspaceDomain"),
   workspaceForm: document.querySelector("#workspaceForm"),
+  workspaceInviteEmail: document.querySelector("#workspaceInviteEmail"),
   workspaceInviteLink: document.querySelector("#workspaceInviteLink"),
+  workspaceInviteRole: document.querySelector("#workspaceInviteRole"),
   workspaceInviteStatus: document.querySelector("#workspaceInviteStatus"),
   workspaceName: document.querySelector("#workspaceName"),
   workspaceRole: document.querySelector("#workspaceRole"),
@@ -413,19 +415,17 @@ els.importWorkAppButton.addEventListener("click", () => {
   openShareImportDialog("", "manual");
 });
 
-els.workspaceForm.addEventListener("submit", (event) => {
+els.workspaceForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   state.workspace.name = els.workspaceCompanyName.value.trim() || "Company Workspace";
   state.workspace.domain = normalizeDomain(els.workspaceDomain.value);
   saveState();
+  await syncWorkspaceToBackend();
   renderWorkspace();
 });
 
-els.regenerateInviteButton.addEventListener("click", () => {
-  state.workspace.inviteCode = createWorkspaceInviteCode();
-  saveState();
-  renderWorkspace();
-  els.workspaceInviteStatus.textContent = "New invite code created.";
+els.regenerateInviteButton.addEventListener("click", async () => {
+  await createEmployeeInvite();
 });
 
 els.copyWorkspaceInviteButton.addEventListener("click", copyWorkspaceInvite);
@@ -693,6 +693,8 @@ function normalizeWorkspace() {
   state.workspace.name ||= "Company Workspace";
   state.workspace.domain ||= "";
   state.workspace.inviteCode ||= createWorkspaceInviteCode();
+  state.workspace.inviteLink ||= "";
+  state.workspace.invites ||= [];
   state.workspace.role ||= "Admin";
   state.workspace.employees ||= [];
   state.workspace.software ||= structuredClone(seedState.workspace.software);
@@ -918,7 +920,7 @@ function renderWorkspace() {
         <span>${escapeHtml(employee.email || "No email added")}</span>
       </div>
       <span class="pill">${escapeHtml(employee.role || "Employee")}</span>
-      <span class="pill ${employee.available ? "available-pill" : "unavailable-pill"}">${employee.available ? "Available" : "Unavailable"}</span>
+      <span class="pill ${employee.status === "invited" ? "pending-pill" : employee.available ? "available-pill" : "unavailable-pill"}">${employee.status === "invited" ? "Pending invite" : employee.available ? "Available" : "Unavailable"}</span>
       <button class="ghost-button availability-toggle" type="button">${employee.available ? "Mark away" : "Mark available"}</button>
     `;
     row.addEventListener("click", () => openEmployeeChat(employee));
@@ -1257,10 +1259,11 @@ async function syncFromBackend() {
   if (!getAuthToken() || backendSyncInFlight) return;
   backendSyncInFlight = true;
   try {
-    const [profileData, conversationData, taskData] = await Promise.all([
+    const [profileData, conversationData, taskData, memberData] = await Promise.all([
       apiFetch("/api/me"),
       apiFetch("/api/conversations"),
-      apiFetch("/api/tasks")
+      apiFetch("/api/tasks"),
+      apiFetch("/api/workspaces/members")
     ]);
     if (profileData.user) {
       state.registration.user = {
@@ -1283,6 +1286,17 @@ async function syncFromBackend() {
     }
     if (Array.isArray(taskData.tasks)) {
       state.tasks = taskData.tasks.map(mapBackendTask);
+    }
+    if (Array.isArray(memberData.members)) {
+      state.workspace.employees = memberData.members.map(mapBackendMember);
+    }
+    if (Array.isArray(memberData.invites)) {
+      state.workspace.invites = memberData.invites;
+      const latestPendingInvite = memberData.invites.find((invite) => invite.status === "pending");
+      if (latestPendingInvite) {
+        state.workspace.inviteCode = latestPendingInvite.inviteCode || latestPendingInvite.token || state.workspace.inviteCode;
+        state.workspace.inviteLink = latestPendingInvite.inviteLink || "";
+      }
     }
     saveState();
   } catch (error) {
@@ -1371,6 +1385,19 @@ function mapBackendTask(task) {
     assignee: task.assignee || "Me",
     reminderAt: task.reminderAt || "",
     remindedAt: task.remindedAt || ""
+  };
+}
+
+function mapBackendMember(member) {
+  return {
+    id: member.id,
+    name: member.name || getNameFromEmail(member.email),
+    email: member.email || "",
+    role: toDisplayRole(member.role),
+    status: member.status || "active",
+    available: member.available !== false,
+    joinedAt: member.joinedAt || member.createdAt || "",
+    lastLoginAt: member.lastLoginAt || ""
   };
 }
 
@@ -2120,13 +2147,105 @@ function getInviteText(inviteLink) {
 }
 
 function getWorkspaceInviteLink() {
+  if (state.workspace.inviteLink) return state.workspace.inviteLink;
   const code = encodeURIComponent(state.workspace.inviteCode);
   const company = encodeURIComponent(state.workspace.name);
-  return `https://todomessenger.example/workspace/join?company=${company}&code=${code}`;
+  return `${getFrontendOrigin()}?company=${company}&invite=${code}`;
 }
 
 function getWorkspaceInviteText() {
-  return `Join ${state.workspace.name} on TodoMessenger with invite code ${state.workspace.inviteCode}: ${getWorkspaceInviteLink()}`;
+  return `Join ${state.workspace.name} on TodoMessenger. Use your invited work email and this link: ${getWorkspaceInviteLink()}`;
+}
+
+function getFrontendOrigin() {
+  if (window.location.protocol === "file:") {
+    return "https://todomessenger26.netlify.app/";
+  }
+  return window.location.origin + window.location.pathname;
+}
+
+async function syncWorkspaceToBackend() {
+  if (!getAuthToken()) return;
+  try {
+    const data = await apiFetch("/api/workspaces/current", {
+      method: "PATCH",
+      body: {
+        name: state.workspace.name,
+        domain: state.workspace.domain
+      }
+    });
+    if (data.workspace) {
+      state.workspace.id = data.workspace.id || state.workspace.id;
+      state.workspace.name = data.workspace.name || state.workspace.name;
+      state.workspace.domain = data.workspace.domain || state.workspace.domain;
+      saveState();
+    }
+    els.workspaceInviteStatus.textContent = "Workspace saved.";
+  } catch (error) {
+    els.workspaceInviteStatus.textContent = `Workspace saved locally. Backend update failed: ${formatApiError(error.message || error)}`;
+  }
+}
+
+async function createEmployeeInvite() {
+  const email = els.workspaceInviteEmail.value.trim().toLowerCase();
+  const role = els.workspaceInviteRole.value || "employee";
+  if (!isValidEmail(email)) {
+    els.workspaceInviteEmail.setCustomValidity("Enter the employee work email first.");
+    els.workspaceInviteEmail.reportValidity();
+    return;
+  }
+  els.workspaceInviteEmail.setCustomValidity("");
+
+  if (!getAuthToken()) {
+    state.workspace.inviteCode = createWorkspaceInviteCode();
+    state.workspace.inviteLink = getWorkspaceInviteLink();
+    els.workspaceInviteStatus.textContent = "Local invite created. Sign in with backend auth to save invites.";
+    saveState();
+    renderWorkspace();
+    return;
+  }
+
+  try {
+    els.regenerateInviteButton.disabled = true;
+    els.workspaceInviteStatus.textContent = "Creating invite...";
+    const data = await apiFetch("/api/workspaces/invites", {
+      method: "POST",
+      body: { email, role }
+    });
+    const invite = data.invite || {};
+    state.workspace.inviteCode = invite.inviteCode || invite.token || state.workspace.inviteCode;
+    state.workspace.inviteLink = invite.inviteLink || state.workspace.inviteLink || "";
+    state.workspace.invites ||= [];
+    state.workspace.invites.unshift(invite);
+    upsertWorkspaceEmployee({
+      id: invite.id || createId("emp"),
+      name: getNameFromEmail(email),
+      email,
+      role: toDisplayRole(role),
+      status: "invited",
+      available: false,
+      joinedAt: new Date().toISOString()
+    });
+    els.workspaceInviteEmail.value = "";
+    els.workspaceInviteLink.value = getWorkspaceInviteLink();
+    els.workspaceInviteStatus.textContent = `Invite created for ${email}.`;
+    saveState();
+    renderWorkspace();
+  } catch (error) {
+    els.workspaceInviteStatus.textContent = `Could not create invite. ${formatApiError(error.message || error)}`;
+  } finally {
+    els.regenerateInviteButton.disabled = false;
+  }
+}
+
+function upsertWorkspaceEmployee(employee) {
+  const existing = state.workspace.employees.find((item) => item.email && employee.email && item.email.toLowerCase() === employee.email.toLowerCase());
+  if (existing) {
+    Object.assign(existing, employee);
+    return existing;
+  }
+  state.workspace.employees.push(employee);
+  return employee;
 }
 
 async function copyWorkspaceInvite() {

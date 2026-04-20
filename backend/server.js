@@ -114,9 +114,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "POST" && url.pathname === "/api/workspaces/invites") {
+    if (req.method === "PATCH" && url.pathname === "/api/workspaces/current") {
+      const auth = await requireAuth(req);
       const body = await readJson(req);
-      sendJson(res, 200, await createWorkspaceInvite(body));
+      sendJson(res, 200, await updateCurrentWorkspace(auth, body));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/workspaces/members") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await listWorkspaceMembers(auth));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/workspaces/invites") {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await createWorkspaceInvite(auth, body));
       return;
     }
 
@@ -340,22 +354,107 @@ async function createWorkspace(body) {
   return { ok: true, workspace };
 }
 
-async function createWorkspaceInvite(body) {
+async function updateCurrentWorkspace(auth, body) {
+  const name = String(body.name || "").trim().slice(0, 160);
+  const domain = normalizeDomain(body.domain || "");
+  if (!["admin", "team_lead"].includes(auth.user.role)) {
+    throw new Error("Only admins and team leads can update workspace settings.");
+  }
+  if (!name || !domain) {
+    throw new Error("Workspace name and company domain are required.");
+  }
+
+  await postgresQuery(
+    "update companies set name = $1, domain = $2, updated_at = now() where id = $3",
+    [name, domain, auth.companyId]
+  );
+  const workspace = { id: auth.companyId, name, domain };
+  broadcastRealtime(auth.companyId, { type: "workspace.updated", workspace });
+  return { ok: true, workspace };
+}
+
+async function listWorkspaceMembers(auth) {
+  const users = await postgresRows(
+    `select id, company_id, email, name, role, status, created_at, last_login_at
+     from users
+     where company_id = $1
+     order by
+       case role when 'admin' then 1 when 'team_lead' then 2 else 3 end,
+       name asc`,
+    [auth.companyId]
+  );
+  const invites = await postgresRows(
+    `select id, email, role, token, expires_at, accepted_at, created_at
+     from invites
+     where company_id = $1
+     order by created_at desc`,
+    [auth.companyId]
+  );
+  return {
+    ok: true,
+    members: users.map((user) => ({
+      id: user.id,
+      companyId: user.company_id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      available: user.status !== "away" && user.status !== "disabled",
+      joinedAt: user.created_at,
+      lastLoginAt: user.last_login_at
+    })),
+    invites: invites.map((invite) => ({
+      id: invite.id,
+      email: invite.email,
+      role: invite.role,
+      token: invite.token,
+      inviteCode: invite.token,
+      inviteLink: createInviteUrl(invite.token),
+      expiresAt: invite.expires_at,
+      acceptedAt: invite.accepted_at,
+      status: invite.accepted_at ? "accepted" : "pending"
+    }))
+  };
+}
+
+async function createWorkspaceInvite(auth, body) {
   const email = normalizeEmail(body.email);
-  const companyId = String(body.companyId || body.workspaceId || "").trim();
+  const companyId = auth?.companyId || String(body.companyId || body.workspaceId || "").trim();
   const role = normalizeRole(body.role || "employee");
   if (!email || !companyId) {
     throw new Error("Invite requires employee email and companyId.");
+  }
+  if (auth && !["admin", "team_lead"].includes(auth.user.role)) {
+    throw new Error("Only admins and team leads can invite employees.");
   }
 
   if (hasPostgresConfig()) {
     const id = crypto.randomUUID();
     const token = createInviteToken();
-    await postgresQuery(
-      "insert into invites (id, company_id, email, role, token, expires_at, created_at) values ($1, $2, $3, $4, $5, now() + interval '14 days', now())",
+    const rows = await postgresRows(
+      `insert into invites (id, company_id, email, role, token, expires_at, accepted_at, created_at)
+       values ($1, $2, $3, $4, $5, now() + interval '14 days', null, now())
+       on conflict (company_id, email)
+       do update set role = excluded.role, token = excluded.token, expires_at = excluded.expires_at, accepted_at = null
+       returning id, company_id, email, role, token, expires_at, accepted_at, created_at`,
       [id, companyId, email, role, token]
     );
-    return { ok: true, invite: { id, companyId, email, role, token } };
+    await upsertInvitedUser(companyId, email, role);
+    const invite = rows[0];
+    const payload = {
+      id: invite.id,
+      companyId: invite.company_id,
+      email: invite.email,
+      role: invite.role,
+      token: invite.token,
+      inviteCode: invite.token,
+      inviteLink: createInviteUrl(invite.token),
+      expiresAt: invite.expires_at,
+      acceptedAt: invite.accepted_at,
+      status: "pending"
+    };
+    broadcastRealtime(companyId, { type: "workspace.invite.created", invite: payload });
+    return { ok: true, invite: payload };
   }
 
   const store = readStore();
@@ -371,6 +470,24 @@ async function createWorkspaceInvite(body) {
   store.invites[invite.id] = invite;
   writeStore(store);
   return { ok: true, invite };
+}
+
+async function upsertInvitedUser(companyId, email, role) {
+  const existing = (await postgresRows("select id, status from users where email = $1 limit 1", [email]))[0];
+  if (existing) {
+    await postgresQuery(
+      "update users set company_id = $1, role = $2, status = case when status = 'active' then status else 'invited' end, updated_at = now() where id = $3",
+      [companyId, role, existing.id]
+    );
+    return existing.id;
+  }
+
+  const userId = crypto.randomUUID();
+  await postgresQuery(
+    "insert into users (id, company_id, email, name, role, status, created_at, updated_at) values ($1, $2, $3, $4, $5, 'invited', now(), now())",
+    [userId, companyId, email, getNameFromEmail(email), role]
+  );
+  return userId;
 }
 
 async function startEmailAuthPostgres(email) {
@@ -400,7 +517,20 @@ async function completeEmailAuthPostgres({ email, code, name }) {
   }
 
   const domain = email.split("@")[1];
-  let company = (await postgresRows("select id, name, domain from companies where domain = $1 limit 1", [domain]))[0];
+  const pendingInvite = (await postgresRows(
+    `select i.id, i.company_id, i.role, i.token, c.name, c.domain
+     from invites i
+     join companies c on c.id = i.company_id
+     where i.email = $1
+       and i.accepted_at is null
+       and i.expires_at > now()
+     order by i.created_at desc
+     limit 1`,
+    [email]
+  ))[0];
+  let company = pendingInvite
+    ? { id: pendingInvite.company_id, name: pendingInvite.name, domain: pendingInvite.domain }
+    : (await postgresRows("select id, name, domain from companies where domain = $1 limit 1", [domain]))[0];
   if (!company) {
     const companyId = crypto.randomUUID();
     await postgresQuery(
@@ -414,17 +544,28 @@ async function completeEmailAuthPostgres({ email, code, name }) {
   if (!user) {
     const existingUsers = await postgresRows("select id from users where company_id = $1 limit 1", [company.id]);
     const userId = crypto.randomUUID();
+    const role = pendingInvite?.role || (existingUsers.length ? "employee" : "admin");
     await postgresQuery(
       "insert into users (id, company_id, email, name, role, status, created_at, updated_at, last_login_at) values ($1, $2, $3, $4, $5, 'active', now(), now(), now())",
-      [userId, company.id, email, name || email.split("@")[0], existingUsers.length ? "employee" : "admin"]
+      [userId, company.id, email, name || getNameFromEmail(email), role]
     );
-    user = { id: userId, company_id: company.id, email, name: name || email.split("@")[0], role: existingUsers.length ? "employee" : "admin", status: "active" };
+    user = { id: userId, company_id: company.id, email, name: name || getNameFromEmail(email), role, status: "active" };
   } else {
-    await postgresQuery("update users set name = $1, last_login_at = now(), updated_at = now() where id = $2", [name || user.name, user.id]);
+    const role = pendingInvite?.role || user.role;
+    await postgresQuery(
+      "update users set company_id = $1, name = $2, role = $3, status = 'active', last_login_at = now(), updated_at = now() where id = $4",
+      [company.id, name || user.name, role, user.id]
+    );
+    user.company_id = company.id;
     user.name = name || user.name;
+    user.role = role;
+    user.status = "active";
   }
 
   await postgresQuery("delete from auth_codes where email = $1", [email]);
+  if (pendingInvite) {
+    await postgresQuery("update invites set accepted_at = now() where id = $1", [pendingInvite.id]);
+  }
   const token = crypto.randomBytes(32).toString("hex");
   await postgresQuery(
     "insert into sessions (id, user_id, token_hash, expires_at, created_at) values ($1, $2, $3, now() + interval '30 days', now())",
@@ -1643,6 +1784,18 @@ function isValidAuthCode(authCode, code, mode) {
 
 function createInviteToken() {
   return crypto.randomBytes(18).toString("base64url");
+}
+
+function createInviteUrl(token) {
+  const base = FRONTEND_ORIGIN || "https://todomessenger.example";
+  return `${base.replace(/\/$/, "")}?invite=${encodeURIComponent(token)}`;
+}
+
+function getNameFromEmail(email) {
+  return String(email || "User")
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function hashSecret(value) {

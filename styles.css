@@ -567,6 +567,10 @@ select:focus {
   color: #8a4b00;
 }
 
+.pending-pill {
+  color: #005b99;
+}
+
 .availability-toggle {
   padding-inline: 0.75rem;
   white-space: nowrap;

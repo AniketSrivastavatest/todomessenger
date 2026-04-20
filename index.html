@@ -183,10 +183,18 @@
             <header class="workspace-card-header">
               <div>
                 <strong>Employee invite</strong>
-                <span>Share this with new employees during onboarding.</span>
+                <span>Add a work email and send a company invite.</span>
               </div>
-              <button class="ghost-button" id="regenerateInviteButton" type="button">New code</button>
+              <button class="ghost-button" id="regenerateInviteButton" type="button">Create invite</button>
             </header>
+            <label for="workspaceInviteEmail">Employee work email</label>
+            <input id="workspaceInviteEmail" type="email" placeholder="employee@company.com">
+            <label for="workspaceInviteRole">Employee role</label>
+            <select id="workspaceInviteRole">
+              <option value="employee">Employee</option>
+              <option value="team_lead">Team lead</option>
+              <option value="admin">Admin</option>
+            </select>
             <label for="workspaceInviteLink">Invite link</label>
             <input id="workspaceInviteLink" readonly>
             <div class="workspace-actions">
