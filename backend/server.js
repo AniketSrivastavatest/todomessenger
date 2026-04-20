@@ -69,7 +69,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/health") {
-      sendJson(res, 200, { ok: true, database: databaseStatus(), providers: providerStatus() });
+      sendJson(res, 200, { ok: true, database: await databaseStatus(), providers: providerStatus() });
       return;
     }
 
@@ -1743,6 +1743,10 @@ function addCors(res) {
 function normalizeError(error) {
   if (!error) return "Server error";
   if (typeof error === "string") return error;
+  if (typeof error.detail === "string") return error.detail;
+  if (typeof error.code === "string" && typeof error.routine === "string") {
+    return `${error.code}: ${error.routine}`;
+  }
   if (typeof error.message === "string") return error.message;
   if (error.message) return normalizeError(error.message);
   if (typeof error.error === "string") return error.error;
@@ -1836,11 +1840,28 @@ function hasPostgresConfig() {
   return Boolean(process.env.DATABASE_URL || (process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE));
 }
 
-function databaseStatus() {
-  return {
+async function databaseStatus() {
+  const status = {
     engine: hasPostgresConfig() ? "postgresql" : "json-store",
     configured: hasPostgresConfig()
   };
+  if (!hasPostgresConfig()) return status;
+
+  try {
+    const rows = await postgresRows(
+      `select exists (
+        select 1 from information_schema.tables
+        where table_schema = 'public' and table_name = 'auth_codes'
+      ) as has_auth_codes`
+    );
+    status.connected = true;
+    status.schemaReady = Boolean(rows[0]?.has_auth_codes);
+  } catch (error) {
+    status.connected = false;
+    status.schemaReady = false;
+    status.error = normalizeError(error);
+  }
+  return status;
 }
 
 async function getPostgresPool() {
