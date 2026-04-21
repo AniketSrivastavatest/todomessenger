@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TodoMessenger</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <section class="registration-screen" id="registrationScreen" aria-label="Registration">
+      <div class="registration-phone">
+        <div class="phone-top"></div>
+        <div class="phone-body">
+          <header class="registration-header">
+            <p class="eyebrow">TodoMessenger</p>
+            <h1 id="registrationTitle">Enter your work email</h1>
+            <p id="registrationCopy">Use your company email to join TodoMessenger and open your chats and tasks.</p>
+          </header>
+
+          <ol class="registration-steps" aria-label="Registration progress">
+            <li class="active" data-step-dot="email">Email</li>
+            <li data-step-dot="verify">Verify</li>
+            <li data-step-dot="profile">Profile</li>
+          </ol>
+
+          <form class="registration-form active" id="emailForm">
+            <label for="workEmail">Work email</label>
+            <input id="workEmail" type="email" autocomplete="email" required placeholder="you@company.com">
+            <p class="helper-text">Company email replaces OTP in this prototype. Team SSO can be added later for production.</p>
+            <button class="primary-button" type="submit">Next</button>
+          </form>
+
+          <form class="registration-form" id="verifyForm">
+            <p class="verify-target" id="verifyTarget"></p>
+            <label for="emailCode">Email code</label>
+            <input id="emailCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
+            <p class="helper-text" id="demoCodeText">Check your email for the code.</p>
+            <button class="dev-code-button" id="useDevCodeButton" type="button" hidden>Use local code</button>
+            <button class="primary-button" type="submit">Verify email</button>
+            <button class="ghost-button" id="resendEmailCodeButton" type="button">Resend code</button>
+            <button class="text-button" id="editEmailButton" type="button">Edit email</button>
+          </form>
+
+          <form class="registration-form" id="profileForm">
+            <label for="profileName">Your name</label>
+            <input id="profileName" autocomplete="name" required placeholder="Your display name">
+
+            <label for="profileAbout">About</label>
+            <input id="profileAbout" placeholder="Available">
+
+            <button class="primary-button" type="submit">Start messaging</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <main class="app-shell" id="appShell">
+      <aside class="sidebar" aria-label="Conversations">
+        <header class="brand-row">
+          <div>
+            <h1>TodoMessenger</h1>
+            <label class="role-switch" for="roleViewSelect">
+              View as
+              <select id="roleViewSelect">
+                <option value="Admin">Admin</option>
+                <option value="Employee">Employee</option>
+              </select>
+            </label>
+          </div>
+          <div class="brand-actions">
+            <button class="icon-button" id="openSettingsButton" type="button" aria-label="Open settings">&#9881;</button>
+            <button class="icon-button" id="newChatButton" type="button" aria-label="Start a new chat">+</button>
+          </div>
+        </header>
+
+        <nav class="app-tabs" aria-label="Main sections">
+          <button class="tab-button active" id="chatsTabButton" type="button">Chats</button>
+          <button class="tab-button" id="tasksTabButton" type="button">Tasks</button>
+        </nav>
+
+        <section class="tab-view active" id="chatsTabView" aria-label="Chats tab">
+          <label class="search-box" for="chatSearch">
+            <span>Search</span>
+            <input id="chatSearch" type="search" placeholder="Search or start a new chat">
+          </label>
+
+          <nav class="conversation-list" id="conversationList" aria-label="Conversation list"></nav>
+        </section>
+
+        <section class="tab-view tasks-tab-view" id="tasksTabView" aria-label="Tasks tab">
+          <header class="task-header">
+            <div>
+              <p class="eyebrow">To-Do</p>
+              <h2>Tasks</h2>
+            </div>
+            <select id="taskFilter" aria-label="Filter tasks">
+              <option value="open">Open</option>
+              <option value="today">Due today</option>
+              <option value="all">All</option>
+              <option value="done">Done</option>
+            </select>
+          </header>
+
+          <section class="quick-stats" aria-label="Task summary">
+            <div>
+              <strong id="openTaskCount">0</strong>
+              <span>open tasks</span>
+            </div>
+            <div>
+              <strong id="dueTodayCount">0</strong>
+              <span>due today</span>
+            </div>
+            <div>
+              <strong id="reminderCount">0</strong>
+              <span>reminders</span>
+            </div>
+          </section>
+
+          <section class="notification-panel">
+            <div>
+              <strong>Task reminders</strong>
+              <span id="notificationStatus">Notifications are off.</span>
+            </div>
+            <button class="ghost-button" id="notificationButton" type="button">Enable notifications</button>
+          </section>
+
+          <form class="task-form" id="taskForm">
+            <label for="taskTitle">Task</label>
+            <input id="taskTitle" required placeholder="Add a task for this chat">
+
+            <label for="taskAssignee">Assign to</label>
+            <input id="taskAssignee" list="employeeOptions" placeholder="Me, Alex, Sarah">
+            <p class="helper-text">Use commas to assign one task to multiple people.</p>
+
+            <div class="form-grid">
+              <label for="taskDue">
+                Due
+                <input id="taskDue" type="date">
+              </label>
+              <label for="taskPriority">
+                Priority
+                <select id="taskPriority">
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+            <label for="taskReminderAt">Reminder</label>
+            <input id="taskReminderAt" type="datetime-local">
+
+            <button class="primary-button" type="submit">Add task</button>
+          </form>
+
+          <section class="ai-task-box" aria-label="Blu conversation organizer">
+            <button class="primary-button" id="suggestTasksButton" type="button">Let Blu organize this conversation</button>
+            <p class="helper-text">Blu reads recent messages from this chat only when you tap this button.</p>
+            <div class="suggestion-list" id="taskSuggestionList"></div>
+          </section>
+
+          <div class="task-list" id="taskList"></div>
+        </section>
+
+      </aside>
+
+      <section class="chat-panel" aria-label="Active chat">
+        <header class="chat-header">
+          <button class="back-button" id="backToChatsButton" type="button" aria-label="Back to chats">‹</button>
+          <div class="chat-person">
+            <img id="activeAvatar" src="" alt="">
+            <div>
+              <h2 id="activeName"></h2>
+              <p id="activeStatus"></p>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <button class="chat-icon-button" id="voiceCallButton" type="button" aria-label="Voice call">☎</button>
+            <button class="chat-icon-button" id="videoCallButton" type="button" aria-label="Video call">▣</button>
+            <div class="more-menu">
+              <button class="chat-icon-button" id="moreButton" type="button" aria-label="More options">⋮</button>
+              <div class="more-menu-panel" id="moreMenuPanel" hidden>
+                <button id="showPinnedTasks" type="button">Tasks</button>
+                <button id="disappearingMessagesButton" type="button">Disappearing messages</button>
+                <button id="importWorkAppButton" type="button">Import from apps</button>
+                <button id="inviteButton" type="button">Invite contact</button>
+                <button id="openSettingsMenuButton" type="button">Settings</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="message-stream" id="messageStream" aria-live="polite"></div>
+
+        <form class="composer" id="messageForm">
+          <div class="reply-preview" id="replyPreview" hidden>
+            <div>
+              <strong id="replyPreviewSender">Replying</strong>
+              <span id="replyPreviewText"></span>
+            </div>
+            <button class="icon-button" id="cancelReplyButton" type="button" aria-label="Cancel reply">x</button>
+          </div>
+          <div class="media-tray" id="mediaTray" hidden>
+            <header class="media-tray-header">
+              <strong>Media</strong>
+              <button class="icon-button" id="closeMediaTrayButton" type="button" aria-label="Close media tray">x</button>
+            </header>
+            <div class="media-tabs" id="mediaTabs" role="tablist" aria-label="Media tabs">
+              <button class="media-tab active" type="button" data-media-tab="emoji" aria-selected="true">Emoji</button>
+              <button class="media-tab" type="button" data-media-tab="gifs" aria-selected="false">GIFs</button>
+              <button class="media-tab" type="button" data-media-tab="stickers" aria-selected="false">Stickers</button>
+            </div>
+            <label class="sr-only" for="mediaSearchInput">Search media</label>
+            <input id="mediaSearchInput" class="media-search-input" type="search" placeholder="Search emoji or media">
+            <div class="media-grid" id="mediaGrid"></div>
+          </div>
+          <button class="task-compose-button" type="button" id="quickTaskButton">Task</button>
+          <button class="attach-button" type="button" id="mediaButton" aria-label="Open emojis, GIFs, and stickers">&#9786;</button>
+          <button class="attach-button" type="button" id="attachButton" aria-label="Attach files">&#128206;</button>
+          <button class="attach-button voice-note-button" type="button" id="voiceNoteButton" aria-label="Record a voice note">&#127908;</button>
+          <input class="sr-only" id="attachmentInput" type="file" multiple aria-label="Attach documents, images, and files">
+          <label class="sr-only" for="messageInput">Message</label>
+          <input id="messageInput" autocomplete="off" placeholder="Message, /todo, or @blu ask anything">
+          <button class="send-button" type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <dialog id="newChatDialog">
+      <form method="dialog" class="dialog-card" id="newChatForm">
+        <header>
+          <h2>New chat</h2>
+          <button class="icon-button" value="cancel" aria-label="Close">x</button>
+        </header>
+        <label for="newChatName">Name</label>
+        <input id="newChatName" required placeholder="Alex, Design team, Family">
+        <label for="newChatStatus">Status</label>
+        <input id="newChatStatus" placeholder="online, planning launch, away">
+        <menu>
+          <button class="ghost-button" value="cancel" type="button" id="cancelNewChat">Cancel</button>
+          <button class="primary-button" value="default" type="submit">Create chat</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="quickTaskDialog">
+      <form method="dialog" class="dialog-card" id="quickTaskForm">
+        <header>
+          <h2>Add task from chat</h2>
+          <button class="icon-button" id="closeQuickTaskDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <label for="quickTaskTitle">Task</label>
+        <input id="quickTaskTitle" required placeholder="Follow up on this message">
+        <label for="quickTaskAssignee">Assign to</label>
+        <input id="quickTaskAssignee" list="employeeOptions" placeholder="Me, Alex, Sarah">
+        <p class="helper-text">Use commas to assign one task to multiple people.</p>
+        <div class="form-grid">
+          <label for="quickTaskDue">
+            Due
+            <input id="quickTaskDue" type="date">
+          </label>
+          <label for="quickTaskPriority">
+            Priority
+            <select id="quickTaskPriority">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+        </div>
+        <label for="quickTaskReminderAt">Reminder</label>
+        <input id="quickTaskReminderAt" type="datetime-local">
+        <p class="helper-text" id="quickTaskSource">Task will be linked to the active chat.</p>
+        <menu>
+          <button class="ghost-button" value="cancel" type="button" id="cancelQuickTask">Cancel</button>
+          <button class="primary-button" value="default" type="submit">Add task</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="reminderDialog">
+      <section class="dialog-card reminder-popup">
+        <div class="popup-hero" aria-hidden="true">&#128276;</div>
+        <header>
+          <div>
+            <p class="eyebrow">Reminder</p>
+            <h2 id="reminderTitle">Task reminder</h2>
+          </div>
+        </header>
+        <p class="helper-text" id="reminderMeta">A task needs your attention.</p>
+        <menu>
+          <button class="ghost-button" id="dismissReminderButton" type="button">Dismiss</button>
+          <button class="primary-button" id="openReminderChatButton" type="button">Open chat</button>
+        </menu>
+      </section>
+    </dialog>
+
+    <dialog id="forwardDialog">
+      <section class="dialog-card">
+        <header>
+          <h2>Forward message</h2>
+          <button class="icon-button" id="closeForwardDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text" id="forwardPreviewText">Select a conversation to forward this message.</p>
+        <div class="forward-list" id="forwardConversationList"></div>
+      </section>
+    </dialog>
+
+    <dialog id="disappearingDialog">
+      <form method="dialog" class="dialog-card" id="disappearingForm">
+        <header>
+          <h2>Disappearing messages</h2>
+          <button class="icon-button" id="closeDisappearingDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <label for="disappearingSelect">Delete new messages after</label>
+        <select id="disappearingSelect">
+          <option value="off">Off</option>
+          <option value="1h">1 hour</option>
+          <option value="24h">24 hours</option>
+          <option value="7d">7 days</option>
+        </select>
+        <p class="helper-text">This applies to new messages in the current conversation.</p>
+        <menu>
+          <button class="ghost-button" id="cancelDisappearingButton" type="button">Cancel</button>
+          <button class="primary-button" type="submit">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="settingsDialog">
+      <section class="dialog-card settings-card" id="workspaceTabView" aria-label="Settings">
+        <header>
+          <button class="icon-button settings-back-button" id="settingsBackButton" type="button" aria-label="Back" hidden>&lsaquo;</button>
+          <div>
+            <p class="eyebrow" id="settingsEyebrow">Settings</p>
+            <h2 id="settingsTitle">Settings</h2>
+          </div>
+          <button class="icon-button" id="closeSettingsDialog" type="button" aria-label="Close">x</button>
+        </header>
+
+        <section class="workspace-card settings-profile-card settings-profile-shell" id="settingsProfileShell">
+          <div class="settings-profile-row">
+            <img id="settingsProfilePreview" class="settings-profile-avatar" src="" alt="Profile picture preview">
+            <div class="settings-profile-fields">
+              <div class="settings-profile-copy">
+                <strong id="settingsProfileHeading">Your profile</strong>
+                <span id="settingsProfileSubheading">Available</span>
+              </div>
+              <div class="settings-profile-actions">
+                <label class="ghost-button settings-upload-button" for="settingsProfilePhoto">Change photo</label>
+                <input id="settingsProfilePhoto" type="file" accept="image/*" hidden>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-home-list" id="settingsHomeView">
+          <button class="settings-nav-item" type="button" data-settings-target="account">
+            <div>
+              <strong>Account</strong>
+              <span>Your profile, work identity, and workspace access.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-target="devices">
+            <div>
+              <strong>Linked devices</strong>
+              <span>Scan a QR code or share your code to connect.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-target="security">
+            <div>
+              <strong>Security</strong>
+              <span>Sessions, device keys, and encrypted chat access.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-target="privacy">
+            <div>
+              <strong>Privacy</strong>
+              <span>Control visibility, receipts, and profile sharing.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-target="notifications">
+            <div>
+              <strong>Notifications</strong>
+              <span>Manage reminders and message alerts.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-target="storage">
+            <div>
+              <strong>Storage and data</strong>
+              <span>See what is stored locally and how much space you use.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-target="apps">
+            <div>
+              <strong>Connected apps</strong>
+              <span>Connect TodoMessenger with company tools.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item admin-settings-section" id="settingsAdminEntry" type="button" data-settings-target="admin">
+            <div>
+              <strong>Workspace admin</strong>
+              <span>Company, employee, and Blu controls.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="account" hidden>
+          <header class="workspace-card-header settings-section-header">
+            <div>
+              <strong>Account</strong>
+              <span>Your profile, work identity, and workspace access.</span>
+            </div>
+          </header>
+          <div class="settings-list">
+            <label class="settings-detail-card" for="settingsProfileName">
+              <span class="settings-detail-label">Display name</span>
+              <input id="settingsProfileName" placeholder="Your display name">
+            </label>
+            <label class="settings-detail-card" for="settingsProfileAbout">
+              <span class="settings-detail-label">Status</span>
+              <input id="settingsProfileAbout" placeholder="Available">
+            </label>
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Work email</span>
+              <strong id="settingsAccountEmail">you@company.com</strong>
+            </div>
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Workspace</span>
+              <strong id="settingsAccountWorkspace">Workspace</strong>
+              <span class="helper-text" id="settingsAccountRole">Admin</span>
+            </div>
+          </div>
+          <button class="primary-button" id="saveSettingsProfileButton" type="button">Save profile</button>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="devices" hidden>
+          <header class="workspace-card-header">
+            <div>
+              <strong>Linked devices</strong>
+              <span>Scan a QR code or share your code to connect.</span>
+            </div>
+          </header>
+          <div class="settings-qr-layout">
+            <div class="qr-placeholder" id="settingsQrCode" aria-label="Connection QR code">
+              <span>TM</span>
+            </div>
+            <div class="settings-qr-copy">
+              <strong>Your connect code</strong>
+              <input id="settingsConnectCode" readonly>
+              <div class="workspace-actions">
+                <button class="primary-button" id="copyConnectCodeButton" type="button">Copy code</button>
+                <button class="ghost-button" id="scanQrButton" type="button">Scan QR</button>
+              </div>
+              <p class="helper-text" id="settingsQrStatus">Link TodoMessenger on another device or share your code with a teammate.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="security" hidden>
+          <header class="workspace-card-header settings-section-header">
+            <div>
+              <strong>Security</strong>
+              <span>Control active sessions and device encryption keys.</span>
+            </div>
+          </header>
+          <div class="settings-list">
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Session revocation</span>
+              <div class="workspace-actions settings-action-row">
+                <button class="ghost-button" id="revokeCurrentSessionButton" type="button">Log out this device</button>
+                <button class="ghost-button" id="revokeAllSessionsButton" type="button">Log out all devices</button>
+              </div>
+              <span class="helper-text" id="settingsSessionStatus">Your current session is active.</span>
+            </div>
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Device encryption</span>
+              <div class="workspace-actions settings-action-row">
+                <button class="primary-button" id="rotateDeviceKeysButton" type="button">Rotate this device key</button>
+                <button class="ghost-button" id="refreshSecurityButton" type="button">Refresh devices</button>
+              </div>
+              <span class="helper-text" id="settingsSecurityStatus">TodoMessenger stores device keys in secure browser storage.</span>
+            </div>
+          </div>
+          <div class="settings-device-list" id="linkedDevicesList"></div>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="privacy" hidden>
+          <header class="workspace-card-header settings-section-header">
+            <div>
+              <strong>Privacy</strong>
+              <span>Control who sees your activity and how Blu behaves around personal signals.</span>
+            </div>
+          </header>
+          <div class="settings-toggle-list">
+            <label class="toggle-row">
+              <input id="settingsReadReceipts" type="checkbox" checked>
+              <span>Read receipts</span>
+            </label>
+            <label class="toggle-row">
+              <input id="settingsLastSeen" type="checkbox" checked>
+              <span>Show last seen and online status</span>
+            </label>
+            <label class="toggle-row">
+              <input id="settingsProfileVisibility" type="checkbox" checked>
+              <span>Show profile photo and status to workspace members</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="notifications" hidden>
+          <header class="workspace-card-header settings-section-header">
+            <div>
+              <strong>Notifications</strong>
+              <span>Manage reminders and message alerts.</span>
+            </div>
+          </header>
+          <div class="settings-list">
+            <div class="notification-panel settings-notification-panel">
+              <div>
+                <strong>Browser notifications</strong>
+                <span id="settingsNotificationStatus">Notifications are off.</span>
+              </div>
+              <button class="ghost-button" id="settingsNotificationButton" type="button">Enable notifications</button>
+            </div>
+            <div class="settings-toggle-list">
+              <label class="toggle-row">
+                <input id="settingsTaskReminderToggle" type="checkbox" checked>
+                <span>Task reminders</span>
+              </label>
+              <label class="toggle-row">
+                <input id="settingsMessagePreviewToggle" type="checkbox" checked>
+                <span>Message previews</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="storage" hidden>
+          <header class="workspace-card-header settings-section-header">
+            <div>
+              <strong>Storage and data</strong>
+              <span>See what is stored locally and how much space chats and tasks use.</span>
+            </div>
+          </header>
+          <div class="settings-list">
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Messages stored</span>
+              <strong id="settingsStorageMessages">0</strong>
+            </div>
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Tasks stored</span>
+              <strong id="settingsStorageTasks">0</strong>
+            </div>
+            <div class="settings-detail-card">
+              <span class="settings-detail-label">Connected apps</span>
+              <strong id="settingsStorageApps">0</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace-card settings-section-card settings-panel" data-settings-panel="apps" hidden>
+          <header class="workspace-card-header">
+            <div>
+              <strong>Connected apps</strong>
+              <span>Connect TodoMessenger with company tools.</span>
+            </div>
+          </header>
+          <div class="connected-apps-settings" id="connectedApps"></div>
+        </section>
+
+        <section class="settings-panel admin-settings-section" data-settings-panel="admin" hidden>
+          <section class="settings-subsection-title">
+            <p class="eyebrow">Workspace admin</p>
+            <h3>Company and Blu controls</h3>
+          </section>
+
+          <section class="workspace-card" id="adminSettingsSection">
+            <header class="task-header">
+              <div>
+                <p class="eyebrow">Company</p>
+                <h2 id="workspaceName">Workspace</h2>
+              </div>
+              <span class="workspace-badge" id="workspaceRole">Admin</span>
+            </header>
+
+            <form class="workspace-form" id="workspaceForm">
+              <label for="workspaceCompanyName">Company name</label>
+              <input id="workspaceCompanyName" required placeholder="Acme Corp">
+
+              <label for="workspaceDomain">Company email domain</label>
+              <input id="workspaceDomain" placeholder="acme.com">
+
+              <button class="primary-button" type="submit">Save workspace</button>
+            </form>
+          </section>
+
+          <section class="workspace-card" id="workspaceInviteSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Employee invite</strong>
+                <span>Add a work email and send a company invite.</span>
+              </div>
+              <button class="ghost-button" id="regenerateInviteButton" type="button">Create invite</button>
+            </header>
+            <label for="workspaceInviteEmail">Employee work email</label>
+            <input id="workspaceInviteEmail" type="email" placeholder="employee@company.com">
+            <label for="workspaceInviteRole">Employee role</label>
+            <select id="workspaceInviteRole">
+              <option value="employee">Employee</option>
+              <option value="team_lead">Team lead</option>
+              <option value="admin">Admin</option>
+            </select>
+            <label for="workspaceInviteLink">Invite link</label>
+            <input id="workspaceInviteLink" readonly>
+            <div class="workspace-actions">
+              <button class="primary-button" id="shareWorkspaceInviteButton" type="button">Share invite</button>
+              <button class="ghost-button" id="copyWorkspaceInviteButton" type="button">Copy link</button>
+            </div>
+            <p class="helper-text" id="workspaceInviteStatus">Invite code ready.</p>
+          </section>
+
+          <section class="workspace-card" id="workspaceJoinSection">
+            <form class="workspace-form" id="employeeJoinForm">
+              <header class="workspace-card-header">
+                <div>
+                  <strong>Join workspace</strong>
+                  <span>Demo employee onboarding flow.</span>
+                </div>
+              </header>
+
+              <label for="employeeJoinName">Employee name</label>
+              <input id="employeeJoinName" required placeholder="Aarav Sharma">
+
+              <label for="employeeJoinEmail">Work email</label>
+              <input id="employeeJoinEmail" type="email" placeholder="aarav@company.com">
+
+              <label for="employeeJoinCode">Invite code</label>
+              <input id="employeeJoinCode" required placeholder="TM-123456">
+
+              <button class="primary-button" type="submit">Join and add employee</button>
+            </form>
+          </section>
+
+          <section class="workspace-card" id="workspaceEmployeesSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Employees</strong>
+                <span id="employeeCount">0 people</span>
+              </div>
+            </header>
+            <div class="employee-list" id="employeeList"></div>
+          </section>
+
+          <section class="workspace-card" id="workspaceSoftwareSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Company software</strong>
+                <span>Choose tools employees can import from.</span>
+              </div>
+            </header>
+            <div class="software-list" id="softwareList"></div>
+          </section>
+
+          <section class="workspace-card" id="bluControlsSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Blu controls</strong>
+                <span>Set what Blu can do in this workspace.</span>
+              </div>
+            </header>
+            <form class="blu-policy-form" id="bluPolicyForm">
+              <label class="toggle-row">
+                <input id="bluRequireApproval" type="checkbox" checked>
+                <span>Require approval before actions</span>
+              </label>
+              <label class="toggle-row">
+                <input id="bluAllowTasks" type="checkbox" checked>
+                <span>Allow internal task creation</span>
+              </label>
+              <label class="toggle-row">
+                <input id="bluAllowExternalSync" type="checkbox">
+                <span>Allow approved external sync</span>
+              </label>
+              <label class="toggle-row">
+                <input id="bluAllowBackgroundJobs" type="checkbox">
+                <span>Allow background reasoning jobs</span>
+              </label>
+              <button class="primary-button" type="submit">Save Blu controls</button>
+              <p class="helper-text" id="bluPolicyStatus">Blu is approval-first by default.</p>
+            </form>
+          </section>
+
+          <section class="workspace-card" id="bluActionsSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Blu Actions</strong>
+                <span id="bluActionCount">0 pending</span>
+              </div>
+              <button class="ghost-button" id="refreshBluActionsButton" type="button">Refresh</button>
+            </header>
+            <div class="blu-action-list" id="bluActionList"></div>
+          </section>
+
+          <section class="workspace-card" id="adminAuditSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Admin audit</strong>
+                <span>Recent workspace security and admin actions.</span>
+              </div>
+              <button class="ghost-button" id="refreshAdminAuditButton" type="button">Refresh</button>
+            </header>
+            <div class="helper-text" id="adminAuditStatus">Audit events will appear here.</div>
+            <div class="settings-audit-list" id="adminAuditList"></div>
+          </section>
+        </section>
+      </section>
+    </dialog>
+
+    <dialog id="assignmentFallbackDialog">
+      <section class="dialog-card">
+        <header>
+          <div>
+            <p class="eyebrow">Assignee unavailable</p>
+            <h2 id="assignmentFallbackTitle">Send task message</h2>
+          </div>
+          <button class="icon-button" id="closeAssignmentFallbackDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text" id="assignmentFallbackMeta">This person is not active on TodoMessenger yet.</p>
+        <textarea id="assignmentFallbackMessage" readonly rows="5"></textarea>
+        <div class="share-grid">
+          <button class="primary-button" id="shareAssignmentFallbackButton" type="button">Share message</button>
+          <button class="ghost-button" id="copyAssignmentFallbackButton" type="button">Copy message</button>
+          <a class="share-button email" id="emailAssignmentFallbackLink">Email</a>
+          <a class="share-button whatsapp" id="whatsappAssignmentFallbackLink" target="_blank" rel="noreferrer">WhatsApp</a>
+        </div>
+        <p class="helper-text" id="assignmentFallbackStatus">Message ready.</p>
+      </section>
+    </dialog>
+
+    <dialog id="shareImportDialog">
+      <section class="dialog-card wide-dialog">
+        <header>
+          <div>
+            <p class="eyebrow">Work app import</p>
+            <h2>Review shared content</h2>
+          </div>
+          <button class="icon-button" id="closeShareImportDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text">Paste or share messages, emails, meeting transcripts, or exported chats from company tools.</p>
+        <div class="software-chip-row" id="importSourceChips"></div>
+        <textarea id="shareImportText" rows="8" placeholder="Paste Teams chat, Gmail email, Zoom transcript, Google Meet notes, or shared app text here."></textarea>
+        <section class="import-ai-review" id="importAiReview" hidden>
+          <div>
+            <p class="eyebrow">Blu review</p>
+            <h3>Summary</h3>
+            <p id="importSummary">Blu will summarize this content before creating tasks.</p>
+          </div>
+          <div>
+            <h3>Confirm tasks one by one</h3>
+            <div class="import-task-review" id="importTaskReview"></div>
+          </div>
+        </section>
+        <menu>
+          <button class="ghost-button" id="saveShareToChatButton" type="button">Save to chat</button>
+          <button class="primary-button" id="shareToTaskButton" type="button">Review with Blu</button>
+        </menu>
+      </section>
+    </dialog>
+
+    <dialog id="inviteDialog">
+      <section class="dialog-card">
+        <header>
+          <h2>Invite people</h2>
+          <button class="icon-button" id="closeInviteDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text">Share your TodoMessenger link so friends can join you on phone or web.</p>
+        <label for="inviteLink">Your invite link</label>
+        <input id="inviteLink" readonly>
+        <div class="share-grid">
+          <button class="primary-button" id="nativeShareButton" type="button">Share on phone</button>
+          <button class="ghost-button" id="copyInviteButton" type="button">Copy link</button>
+          <a class="share-button whatsapp" id="whatsappShareLink" target="_blank" rel="noreferrer">WhatsApp</a>
+          <a class="share-button instagram" id="instagramShareLink" target="_blank" rel="noreferrer">Instagram</a>
+          <a class="share-button sms" id="smsShareLink">SMS</a>
+          <a class="share-button email" id="emailShareLink">Email</a>
+        </div>
+        <p class="helper-text" id="shareStatus">Instagram web does not accept pre-filled link text, so copy the link before opening it.</p>
+      </section>
+    </dialog>
+
+    <dialog id="contactSyncDialog">
+      <section class="dialog-card contact-popup">
+        <div class="popup-hero" aria-hidden="true">👥</div>
+        <header>
+          <div>
+            <p class="eyebrow">Find friends</p>
+            <h2>Sync your contacts</h2>
+          </div>
+        </header>
+        <p class="helper-text">TodoMessenger can help you find people you already know. This demo will not upload contacts; it only shows the permission step.</p>
+        <menu>
+          <button class="ghost-button" id="skipContactSyncButton" type="button">Not now</button>
+          <button class="primary-button" id="syncContactsButton" type="button">Sync contacts</button>
+        </menu>
+      </section>
+    </dialog>
+
+    <dialog id="inviteContactsDialog">
+      <section class="dialog-card contact-popup">
+        <div class="popup-hero" aria-hidden="true">✉</div>
+        <header>
+          <div>
+            <p class="eyebrow">Grow your network</p>
+            <h2>Invite your contacts</h2>
+          </div>
+        </header>
+        <p class="helper-text">Send your TodoMessenger invite link to friends, teammates, or family.</p>
+        <menu>
+          <button class="ghost-button" id="skipInviteContactsButton" type="button">Later</button>
+          <button class="primary-button" id="inviteContactsButton" type="button">Invite contacts</button>
+        </menu>
+      </section>
+    </dialog>
+
+    <dialog id="mcpDialog">
+      <section class="dialog-card wide-dialog">
+        <header>
+          <div>
+            <p class="eyebrow">Legacy MCP Lab</p>
+            <h2>Advanced connectors</h2>
+          </div>
+          <button class="icon-button" id="closeMcpDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text">Most connection settings now live inside Settings. This screen stays here for advanced MCP experiments only.</p>
+
+        <div class="mcp-layout">
+          <section>
+            <h3>Connected apps snapshot</h3>
+            <div class="connected-apps" id="legacyConnectedApps"></div>
+          </section>
+
+          <form class="mcp-form" id="customMcpForm">
+            <h3>Custom connector</h3>
+            <label for="mcpAppName">App name</label>
+            <input id="mcpAppName" required placeholder="Calendar, Notes, CRM">
+            <label for="mcpEndpoint">MCP endpoint</label>
+            <input id="mcpEndpoint" required placeholder="todomessenger://mcp/calendar or https://...">
+            <button class="primary-button" type="submit">Add connector</button>
+          </form>
+        </div>
+
+        <label for="mcpManifest">MCP manifest preview</label>
+        <textarea id="mcpManifest" readonly rows="10"></textarea>
+      </section>
+    </dialog>
+
+    <datalist id="employeeOptions"></datalist>
+    <div class="task-toast" id="taskToast" role="status" aria-live="polite" hidden></div>
+
+    <script src="app-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

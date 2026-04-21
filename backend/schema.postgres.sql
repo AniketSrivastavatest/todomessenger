@@ -49,6 +49,7 @@ create table if not exists users (
   company_id uuid not null references companies(id),
   email varchar(255) not null unique,
   name varchar(160) not null,
+  about varchar(240) not null default 'Available',
   role user_role not null default 'employee',
   status user_status not null default 'active',
   last_login_at timestamptz null,
@@ -116,6 +117,7 @@ create table if not exists messages (
   encrypted_body text null,
   plain_preview varchar(280) null,
   attachment_json jsonb null,
+  reply_to_json jsonb null,
   created_at timestamptz not null default now()
 );
 
@@ -139,6 +141,51 @@ create table if not exists message_reads (
 );
 
 create index if not exists message_reads_user_idx on message_reads(user_id, read_at);
+
+create table if not exists e2ee_devices (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  device_id varchar(120) not null,
+  device_label varchar(160) not null default 'Device',
+  identity_key jsonb not null,
+  signed_prekey_id varchar(120) not null,
+  signed_prekey jsonb not null,
+  signed_prekey_signature text not null,
+  registration_id varchar(120) null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  revoked_at timestamptz null,
+  unique (user_id, device_id)
+);
+
+create index if not exists e2ee_devices_user_active_idx on e2ee_devices(user_id, revoked_at);
+
+create table if not exists e2ee_one_time_prekeys (
+  user_id uuid not null references users(id) on delete cascade,
+  device_id varchar(120) not null,
+  prekey_id varchar(120) not null,
+  prekey jsonb not null,
+  created_at timestamptz not null default now(),
+  claimed_at timestamptz null,
+  primary key (user_id, device_id, prekey_id)
+);
+
+create index if not exists e2ee_one_time_prekeys_claim_idx on e2ee_one_time_prekeys(user_id, device_id, claimed_at);
+
+create table if not exists e2ee_conversation_key_envelopes (
+  conversation_id uuid not null references conversations(id) on delete cascade,
+  recipient_user_id uuid not null references users(id) on delete cascade,
+  recipient_device_id varchar(120) not null,
+  sender_user_id uuid not null references users(id) on delete cascade,
+  envelope_version integer not null default 1,
+  algorithm varchar(80) not null default 'x3dh-aes-gcm',
+  encrypted_key text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (conversation_id, recipient_user_id, recipient_device_id)
+);
+
+create index if not exists e2ee_key_envelopes_recipient_idx on e2ee_conversation_key_envelopes(recipient_user_id, recipient_device_id);
 
 create table if not exists tasks (
   id uuid primary key default gen_random_uuid(),
@@ -184,3 +231,57 @@ create table if not exists integrations (
   updated_at timestamptz not null default now(),
   unique (company_id, provider)
 );
+
+create table if not exists blu_agent_events (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid null references companies(id) on delete cascade,
+  user_id uuid null references users(id) on delete set null,
+  event_type varchar(80) not null,
+  payload_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists blu_agent_events_company_created_idx on blu_agent_events(company_id, created_at desc);
+
+create table if not exists blu_agent_policy (
+  company_id uuid primary key references companies(id) on delete cascade,
+  require_approval boolean not null default true,
+  allow_internal_task_creation boolean not null default true,
+  allow_external_sync boolean not null default false,
+  allow_background_jobs boolean not null default false,
+  allowed_providers jsonb not null default '["google_calendar"]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists blu_agent_actions (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  user_id uuid null references users(id) on delete set null,
+  conversation_id uuid null references conversations(id) on delete set null,
+  action_type varchar(80) not null,
+  title varchar(220) not null,
+  assignee varchar(255) not null default 'Me',
+  priority task_priority not null default 'normal',
+  due_at timestamptz null,
+  status varchar(40) not null default 'pending',
+  source varchar(80) not null default 'blu',
+  reason text null,
+  payload_json jsonb not null default '{}'::jsonb,
+  completed_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists blu_agent_actions_company_status_idx on blu_agent_actions(company_id, status, created_at desc);
+
+create table if not exists admin_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  actor_user_id uuid null references users(id) on delete set null,
+  action_type varchar(120) not null,
+  target_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists admin_audit_events_company_created_idx on admin_audit_events(company_id, created_at desc);

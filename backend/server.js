@@ -13,13 +13,24 @@ loadDotEnv(path.join(__dirname, ".env"));
 
 const PORT = Number(process.env.PORT || 8787);
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:8080";
+const FRONTEND_ORIGINS = parseAllowedOrigins(process.env.FRONTEND_ORIGINS || FRONTEND_ORIGIN);
 const PUBLIC_BACKEND_URL = process.env.PUBLIC_BACKEND_URL || `http://localhost:${PORT}`;
 const DATA_DIR = path.join(__dirname, "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
 const AUTH_CODE_TTL_MS = 15 * 60 * 1000;
 const DEV_AUTH_CODE = process.env.DEV_AUTH_CODE || "123456";
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 240);
+const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_LIMIT_MAX_REQUESTS = Number(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 20);
+const AI_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const AI_RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_RATE_LIMIT_MAX_REQUESTS || 30);
+const REALTIME_TICKET_TTL_MS = 60 * 1000;
 let postgresPool;
+let postgresRuntimeSchemaReady = false;
 const realtimeClients = new Map();
+const rateLimitBuckets = new Map();
+const realtimeTickets = new Map();
 
 const PROVIDERS = {
   asana: {
@@ -41,21 +52,42 @@ const PROVIDERS = {
     redirectUri: process.env.JIRA_REDIRECT_URI || `${PUBLIC_BACKEND_URL}/oauth/jira/callback`,
     scopes: process.env.JIRA_SCOPES || "read:jira-work write:jira-work offline_access",
     tokenBodyStyle: "json"
+  },
+  google_calendar: {
+    name: "Google Calendar",
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    clientId: process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_CALENDAR_REDIRECT_URI || `${PUBLIC_BACKEND_URL}/oauth/google_calendar/callback`,
+    scopes: process.env.GOOGLE_CALENDAR_SCOPES || "https://www.googleapis.com/auth/calendar.events",
+    tokenBodyStyle: "form"
   }
 };
 
 ensureStore();
-processDueReminders();
-setInterval(processDueReminders, 30000);
+ensurePostgresRuntimeSchema().catch((error) => console.warn(`PostgreSQL schema check failed: ${normalizeError(error)}`));
+processDueReminders().catch((error) => console.warn(`Reminder worker failed: ${normalizeError(error)}`));
+setInterval(() => {
+  processDueReminders().catch((error) => console.warn(`Reminder worker failed: ${normalizeError(error)}`));
+}, 30000);
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, PUBLIC_BACKEND_URL);
+    applyResponseSecurity(req, res);
+
+    if (!isCorsOriginAllowed(req)) {
+      sendJson(res, 403, { error: "Origin is not allowed." });
+      return;
+    }
 
     if (req.method === "OPTIONS") {
       sendNoContent(res);
       return;
     }
+
+    enforceRateLimit(req, url);
 
     if (req.method === "GET" && url.pathname === "/") {
       sendJson(res, 200, {
@@ -75,7 +107,7 @@ const server = http.createServer(async (req, res) => {
 
     const oauthStart = url.pathname.match(/^\/oauth\/([^/]+)\/start$/);
     if (req.method === "GET" && oauthStart) {
-      startOAuth(oauthStart[1], url, res);
+      await startOAuth(oauthStart[1], url, res);
       return;
     }
 
@@ -86,13 +118,21 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/integrations") {
-      sendJson(res, 200, listIntegrations());
+      const auth = await optionalAuth(req);
+      sendJson(res, 200, await listIntegrations(auth));
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/api/me") {
       const auth = await requireAuth(req);
       sendJson(res, 200, { ok: true, user: auth.user, workspace: auth.workspace });
+      return;
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/me") {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await updateCurrentUser(auth, body));
       return;
     }
 
@@ -105,6 +145,18 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/auth/email/complete") {
       const body = await readJson(req);
       sendJson(res, 200, await completeEmailAuth(body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/auth/logout") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await revokeCurrentSession(auth));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/auth/logout-all") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await revokeAllSessions(auth));
       return;
     }
 
@@ -197,27 +249,73 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "POST" && url.pathname === "/api/push/register") {
+    if (req.method === "GET" && url.pathname === "/api/e2ee/devices") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await listOwnDevices(auth));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/e2ee/devices") {
+      const auth = await requireAuth(req);
       const body = await readJson(req);
-      sendJson(res, 200, registerPushToken(body));
+      sendJson(res, 200, await registerE2eeDevice(auth, body));
+      return;
+    }
+
+    const e2eeDeviceRoute = url.pathname.match(/^\/api\/e2ee\/devices\/([^/]+)$/);
+    if (req.method === "PATCH" && e2eeDeviceRoute) {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await updateE2eeDevice(auth, decodeURIComponent(e2eeDeviceRoute[1]), body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/e2ee/prekey-bundles") {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await claimPrekeyBundles(auth, body));
+      return;
+    }
+
+    const conversationKeyEnvelopes = url.pathname.match(/^\/api\/e2ee\/conversations\/([^/]+)\/key-envelopes$/);
+    if (req.method === "GET" && conversationKeyEnvelopes) {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await listConversationKeyEnvelopes(auth, conversationKeyEnvelopes[1], url.searchParams));
+      return;
+    }
+
+    if (req.method === "POST" && conversationKeyEnvelopes) {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await saveConversationKeyEnvelopes(auth, conversationKeyEnvelopes[1], body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/push/register") {
+      const auth = await optionalAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await registerPushToken(auth, body));
       return;
     }
 
     if (req.method === "POST" && url.pathname === "/api/push/send-test") {
+      const auth = await optionalAuth(req);
       const body = await readJson(req);
-      sendJson(res, 200, await sendTestPush(body));
+      sendJson(res, 200, await sendTestPush(auth, body));
       return;
     }
 
     if (req.method === "POST" && url.pathname === "/api/reminders/schedule") {
+      const auth = await optionalAuth(req);
       const body = await readJson(req);
-      sendJson(res, 200, scheduleReminder(body));
+      sendJson(res, 200, await scheduleReminder(auth, body));
       return;
     }
 
     if (req.method === "POST" && url.pathname === "/api/reminders/cancel") {
+      const auth = await optionalAuth(req);
       const body = await readJson(req);
-      sendJson(res, 200, cancelReminder(body));
+      sendJson(res, 200, await cancelReminder(auth, body));
       return;
     }
 
@@ -233,6 +331,66 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/ai/agent-plan") {
+      const auth = await optionalAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await planBluAgentActions(auth, body));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/agent/audit") {
+      const auth = await optionalAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await recordBluAgentEvent(auth, body));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/agent/actions") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await listBluAgentActions(auth));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/agent/actions") {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await createBluAgentAction(auth, body));
+      return;
+    }
+
+    const bluAgentActionRoute = url.pathname.match(/^\/api\/agent\/actions\/([^/]+)$/);
+    if (req.method === "PATCH" && bluAgentActionRoute) {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await updateBluAgentAction(auth, bluAgentActionRoute[1], body));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/agent/policy") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await getBluAgentPolicy(auth));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/realtime/session") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await createRealtimeSession(auth));
+      return;
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/agent/policy") {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await updateBluAgentPolicy(auth, body));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/admin/audit") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await listAdminAuditEvents(auth, url.searchParams));
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/sync/asana/task") {
       const body = await readJson(req);
       sendJson(res, 200, await createAsanaTask(body));
@@ -245,9 +403,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/sync/google-calendar/event") {
+      const auth = await optionalAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await createGoogleCalendarEvent(auth, body));
+      return;
+    }
+
     sendJson(res, 404, { error: "Route not found" });
   } catch (error) {
-    sendJson(res, 500, { error: normalizeError(error) });
+    sendJson(res, Number(error?.statusCode || 500), { error: normalizeError(error) });
   }
 });
 
@@ -279,9 +444,11 @@ async function startEmailAuth(body) {
   return {
     ok: true,
     email,
-    delivery: "demo",
-    demoCode: code,
-    message: "Demo mode: use the returned code. In production this is emailed."
+    delivery: isDevAuthCodeEnabled() ? "demo" : "email",
+    demoCode: isDevAuthCodeEnabled() ? code : "",
+    message: isDevAuthCodeEnabled()
+      ? "Dev mode: use the returned code. In production this is emailed."
+      : "Verification started. In production this is emailed."
   };
 }
 
@@ -331,6 +498,45 @@ async function completeEmailAuth(body) {
   return { ok: true, token: session.token, user, workspace: company };
 }
 
+async function revokeCurrentSession(auth) {
+  if (hasPostgresConfig()) {
+    await postgresQuery(
+      "update sessions set revoked_at = now() where token_hash = $1 and revoked_at is null",
+      [hashSecret(auth.token)]
+    );
+    await recordAdminAudit(auth, "session.logout", { session: "current" }, false);
+    return { ok: true, revoked: true };
+  }
+
+  const store = readStore();
+  delete store.sessions[auth.token];
+  writeStore(store);
+  return { ok: true, revoked: true };
+}
+
+async function revokeAllSessions(auth) {
+  if (hasPostgresConfig()) {
+    await postgresQuery(
+      `update sessions
+       set revoked_at = now()
+       where user_id = $1
+         and revoked_at is null`,
+      [auth.user.id]
+    );
+    await recordAdminAudit(auth, "session.logout_all", { userId: auth.user.id }, false);
+    return { ok: true, revoked: true };
+  }
+
+  const store = readStore();
+  Object.keys(store.sessions).forEach((token) => {
+    if (store.sessions[token]?.userId === auth.user.id) {
+      delete store.sessions[token];
+    }
+  });
+  writeStore(store);
+  return { ok: true, revoked: true };
+}
+
 async function createWorkspace(body) {
   const name = String(body.name || "").trim();
   const domain = normalizeDomain(body.domain || "");
@@ -369,6 +575,7 @@ async function updateCurrentWorkspace(auth, body) {
     [name, domain, auth.companyId]
   );
   const workspace = { id: auth.companyId, name, domain };
+  await recordAdminAudit(auth, "workspace.updated", workspace);
   broadcastRealtime(auth.companyId, { type: "workspace.updated", workspace });
   return { ok: true, workspace };
 }
@@ -453,6 +660,7 @@ async function createWorkspaceInvite(auth, body) {
       acceptedAt: invite.accepted_at,
       status: "pending"
     };
+    await recordAdminAudit(auth, "workspace.invite.created", { email, role, inviteId: invite.id });
     broadcastRealtime(companyId, { type: "workspace.invite.created", invite: payload });
     return { ok: true, invite: payload };
   }
@@ -500,9 +708,9 @@ async function startEmailAuthPostgres(email) {
   return {
     ok: true,
     email,
-    delivery: "email",
-    demoCode: process.env.NODE_ENV === "production" ? undefined : code,
-    message: process.env.NODE_ENV === "production" ? "Verification code sent by email." : "Local mode: use the returned code."
+    delivery: isDevAuthCodeEnabled() ? "demo" : "email",
+    demoCode: isDevAuthCodeEnabled() ? code : undefined,
+    message: isDevAuthCodeEnabled() ? "Dev mode: use the returned code." : "Verification code sent by email."
   };
 }
 
@@ -622,6 +830,16 @@ async function requireAuth(req) {
   return getAuthContextByToken(token);
 }
 
+async function optionalAuth(req) {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  try {
+    return await getAuthContextByToken(token);
+  } catch {
+    return null;
+  }
+}
+
 function getBearerToken(req) {
   const header = req.headers.authorization || "";
   const match = header.match(/^Bearer\s+(.+)$/i);
@@ -632,10 +850,11 @@ async function getAuthContextByToken(token) {
   if (!hasPostgresConfig()) {
     throw new Error("Authenticated app data requires PostgreSQL. Configure DATABASE_URL or POSTGRES_*.");
   }
+  await ensurePostgresRuntimeSchema();
 
   const rows = await postgresRows(
     `select
-       u.id, u.company_id, u.email, u.name, u.role, u.status,
+       u.id, u.company_id, u.email, u.name, u.about, u.role, u.status,
        c.name as company_name, c.domain as company_domain
      from sessions s
      join users u on u.id = s.user_id
@@ -663,7 +882,30 @@ async function getAuthContextByToken(token) {
   };
 }
 
+async function updateCurrentUser(auth, body) {
+  const name = String(body.name || "").trim().slice(0, 160);
+  const about = String(body.about || "Available").trim().slice(0, 240) || "Available";
+  if (!name) {
+    throw new Error("Profile name is required.");
+  }
+
+  await ensurePostgresRuntimeSchema();
+  const rows = await postgresRows(
+    `update users
+     set name = $1,
+         about = $2,
+         updated_at = now()
+     where id = $3
+     returning id, company_id, email, name, about, role, status`,
+    [name, about, auth.user.id]
+  );
+  const user = normalizeDbUser(rows[0]);
+  broadcastRealtime(auth.companyId, { type: "user.updated", user });
+  return { ok: true, user };
+}
+
 async function listConversations(auth) {
+  await syncCompanyConversationMemberships(auth.companyId);
   const rows = await postgresRows(
     `select c.id, c.name, c.type, c.created_at, c.updated_at,
        coalesce(
@@ -672,7 +914,7 @@ async function listConversations(auth) {
              'id', m.id,
              'senderId', m.sender_id,
              'sender', case when m.sender_id = $2 then 'me' else 'them' end,
-             'preview', coalesce(m.plain_preview, ''),
+             'preview', case when coalesce(m.plain_preview, '') <> '' then m.plain_preview else '[Encrypted message]' end,
              'encrypted', m.encrypted_body,
              'attachments', coalesce(m.attachment_json, '[]'::jsonb),
              'time', to_char(m.created_at, 'HH24:MI'),
@@ -719,6 +961,23 @@ async function listConversations(auth) {
     [auth.companyId, auth.user.id]
   );
 
+  const conversationIds = rows.map((row) => row.id).filter(Boolean);
+  const memberRows = conversationIds.length
+    ? await postgresRows(
+        `select cm.conversation_id, cm.user_id, u.name
+         from conversation_members cm
+         join users u on u.id = cm.user_id
+         where cm.conversation_id = any($1::uuid[])`,
+        [conversationIds]
+      )
+    : [];
+  const membersByConversation = new Map();
+  memberRows.forEach((row) => {
+    const current = membersByConversation.get(row.conversation_id) || [];
+    current.push({ userId: row.user_id, name: row.name });
+    membersByConversation.set(row.conversation_id, current);
+  });
+
   return {
     ok: true,
     conversations: rows.map((row) => ({
@@ -728,6 +987,8 @@ async function listConversations(auth) {
       status: row.type === "direct" ? "private chat" : "workspace chat",
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      memberIds: (membersByConversation.get(row.id) || []).map((member) => member.userId),
+      members: membersByConversation.get(row.id) || [],
       messages: row.messages || []
     }))
   };
@@ -752,17 +1013,15 @@ async function createConversation(auth, body) {
 }
 
 async function ensureConversationAccess(auth, conversationId) {
+  await syncCompanyConversationMemberships(auth.companyId);
   const rows = await postgresRows(
     `select id, name, type
      from conversations
      where id = $1
        and company_id = $2
-       and (
-         type in ('group', 'system')
-         or exists (
-           select 1 from conversation_members cm
-           where cm.conversation_id = conversations.id and cm.user_id = $3
-         )
+       and exists (
+         select 1 from conversation_members cm
+         where cm.conversation_id = conversations.id and cm.user_id = $3
        )
      limit 1`,
     [conversationId, auth.companyId, auth.user.id]
@@ -776,7 +1035,7 @@ async function ensureConversationAccess(auth, conversationId) {
 async function listMessages(auth, conversationId) {
   await ensureConversationAccess(auth, conversationId);
   const rows = await postgresRows(
-    `select m.id, m.sender_id, m.encrypted_body, m.plain_preview, m.attachment_json, m.created_at,
+    `select m.id, m.sender_id, m.encrypted_body, m.plain_preview, m.attachment_json, m.reply_to_json, m.created_at,
        coalesce(
          (select json_agg(json_build_object('userId', mr.user_id, 'reaction', mr.reaction, 'createdAt', mr.created_at))
           from message_reactions mr where mr.message_id = m.id),
@@ -803,16 +1062,18 @@ async function listMessages(auth, conversationId) {
 async function createMessage(auth, conversationId, body) {
   await ensureConversationAccess(auth, conversationId);
   const text = String(body.text || body.preview || "").trim();
-  const preview = String(body.preview || text).slice(0, 280);
+  const allowServerPreview = body.allowServerPreview === true;
+  const preview = allowServerPreview ? String(body.preview || text).slice(0, 280) : "";
   const encryptedBody = String(body.encryptedBody || body.encrypted || text).slice(0, 20000);
   const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+  const replyTo = normalizeReplyTo(body.replyTo);
   const messageId = crypto.randomUUID();
 
   const rows = await postgresRows(
-    `insert into messages (id, conversation_id, sender_id, encrypted_body, plain_preview, attachment_json, created_at)
-     values ($1, $2, $3, $4, $5, $6::jsonb, now())
-     returning id, sender_id, encrypted_body, plain_preview, attachment_json, created_at`,
-    [messageId, conversationId, auth.user.id, encryptedBody, preview, JSON.stringify(attachments)]
+    `insert into messages (id, conversation_id, sender_id, encrypted_body, plain_preview, attachment_json, reply_to_json, created_at)
+     values ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, now())
+     returning id, sender_id, encrypted_body, plain_preview, attachment_json, reply_to_json, created_at`,
+    [messageId, conversationId, auth.user.id, encryptedBody, preview, JSON.stringify(attachments), JSON.stringify(replyTo)]
   );
   await postgresQuery("update conversations set updated_at = now() where id = $1", [conversationId]);
 
@@ -938,6 +1199,312 @@ async function markMessageRead(auth, messageId) {
   return { ok: true, read: payload };
 }
 
+async function listOwnDevices(auth) {
+  await ensurePostgresRuntimeSchema();
+  const rows = await postgresRows(
+    `select device_id, device_label, identity_key, signed_prekey_id, signed_prekey,
+            signed_prekey_signature, registration_id, created_at, updated_at, revoked_at
+     from e2ee_devices
+     where user_id = $1 and revoked_at is null
+     order by updated_at desc`,
+    [auth.user.id]
+  );
+  return { ok: true, devices: rows.map(mapE2eeDeviceRow) };
+}
+
+async function registerE2eeDevice(auth, body) {
+  await ensurePostgresRuntimeSchema();
+  const deviceId = normalizeDeviceId(body.deviceId);
+  const deviceLabel = String(body.deviceLabel || "Device").trim().slice(0, 160) || "Device";
+  const identityKey = normalizePublicKeyJson(body.identityKey, "identityKey");
+  const signedPrekey = normalizePublicKeyJson(body.signedPrekey, "signedPrekey");
+  const signedPrekeyId = String(body.signedPrekeyId || "").trim().slice(0, 120);
+  const signedPrekeySignature = String(body.signedPrekeySignature || "").trim();
+  const registrationId = String(body.registrationId || "").trim().slice(0, 120);
+  const oneTimePrekeys = Array.isArray(body.oneTimePrekeys) ? body.oneTimePrekeys.slice(0, 100) : [];
+  if (!signedPrekeyId || !signedPrekeySignature) {
+    throw new Error("signedPrekeyId and signedPrekeySignature are required.");
+  }
+
+  await postgresQuery(
+    `insert into e2ee_devices (
+       id, user_id, device_id, device_label, identity_key, signed_prekey_id,
+       signed_prekey, signed_prekey_signature, registration_id, created_at, updated_at, revoked_at
+     )
+     values ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8, $9, now(), now(), null)
+     on conflict (user_id, device_id)
+     do update set
+       device_label = excluded.device_label,
+       identity_key = excluded.identity_key,
+       signed_prekey_id = excluded.signed_prekey_id,
+       signed_prekey = excluded.signed_prekey,
+       signed_prekey_signature = excluded.signed_prekey_signature,
+       registration_id = excluded.registration_id,
+       revoked_at = null,
+       updated_at = now()`,
+    [
+      crypto.randomUUID(),
+      auth.user.id,
+      deviceId,
+      deviceLabel,
+      JSON.stringify(identityKey),
+      signedPrekeyId,
+      JSON.stringify(signedPrekey),
+      signedPrekeySignature,
+      registrationId || null
+    ]
+  );
+
+  let prekeyCount = 0;
+  for (const item of oneTimePrekeys) {
+    const prekeyId = String(item?.id || item?.prekeyId || "").trim().slice(0, 120);
+    if (!prekeyId) continue;
+    const prekey = normalizePublicKeyJson(item?.key || item?.prekey, "oneTimePrekey");
+    await postgresQuery(
+      `insert into e2ee_one_time_prekeys (user_id, device_id, prekey_id, prekey, created_at, claimed_at)
+       values ($1, $2, $3, $4::jsonb, now(), null)
+       on conflict (user_id, device_id, prekey_id)
+       do update set prekey = excluded.prekey, claimed_at = null, created_at = now()`,
+      [auth.user.id, deviceId, prekeyId, JSON.stringify(prekey)]
+    );
+    prekeyCount += 1;
+  }
+
+  broadcastRealtime(auth.companyId, { type: "e2ee.device.updated", userId: auth.user.id, deviceId });
+  return { ok: true, deviceId, oneTimePrekeys: prekeyCount };
+}
+
+async function updateE2eeDevice(auth, deviceId, body) {
+  await ensurePostgresRuntimeSchema();
+  const normalizedDeviceId = normalizeDeviceId(deviceId);
+  const action = String(body.action || "").trim().toLowerCase();
+  if (action !== "revoke") {
+    throw new Error("Only revoke is supported for device updates.");
+  }
+
+  const rows = await postgresRows(
+    `update e2ee_devices
+     set revoked_at = now(), updated_at = now()
+     where user_id = $1 and device_id = $2 and revoked_at is null
+     returning device_id, device_label, updated_at, revoked_at`,
+    [auth.user.id, normalizedDeviceId]
+  );
+  if (!rows[0]) {
+    throw new Error("Device not found.");
+  }
+
+  await postgresQuery(
+    `delete from e2ee_conversation_key_envelopes
+     where recipient_user_id = $1 and recipient_device_id = $2`,
+    [auth.user.id, normalizedDeviceId]
+  );
+  await recordAdminAudit(auth, "e2ee.device.revoked", { deviceId: normalizedDeviceId }, false);
+  broadcastRealtime(auth.companyId, { type: "e2ee.device.updated", userId: auth.user.id, deviceId: normalizedDeviceId });
+  return { ok: true, device: mapE2eeDeviceRow(rows[0]) };
+}
+
+async function claimPrekeyBundles(auth, body) {
+  await ensurePostgresRuntimeSchema();
+  const userIds = Array.isArray(body.userIds) ? body.userIds.map(String).slice(0, 50) : [];
+  if (!userIds.length) {
+    throw new Error("userIds is required.");
+  }
+
+  const membershipRows = await postgresRows(
+    "select id from users where company_id = $1 and id = any($2::uuid[])",
+    [auth.companyId, userIds]
+  );
+  const allowedUserIds = new Set(membershipRows.map((row) => row.id));
+  const bundles = [];
+  for (const userId of userIds.filter((id) => allowedUserIds.has(id))) {
+    const deviceRows = await postgresRows(
+      `select device_id, device_label, identity_key, signed_prekey_id, signed_prekey,
+              signed_prekey_signature, registration_id, updated_at
+       from e2ee_devices
+       where user_id = $1 and revoked_at is null
+       order by updated_at desc`,
+      [userId]
+    );
+    for (const device of deviceRows) {
+      bundles.push({
+        userId,
+        ...mapE2eeDeviceRow(device),
+        oneTimePrekey: await claimOneTimePrekey(userId, device.device_id)
+      });
+    }
+  }
+
+  return { ok: true, bundles };
+}
+
+async function syncCompanyConversationMemberships(companyId) {
+  if (!companyId || !hasPostgresConfig()) return;
+  await postgresQuery(
+    `insert into conversation_members (conversation_id, user_id, role, joined_at)
+     select c.id, u.id, 'member', now()
+     from conversations c
+     join users u on u.company_id = c.company_id
+     where c.company_id = $1
+       and c.type in ('group', 'system')
+       and u.status <> 'disabled'
+       and not exists (
+         select 1
+         from conversation_members cm
+         where cm.conversation_id = c.id and cm.user_id = u.id
+       )`,
+    [companyId]
+  );
+}
+
+async function claimOneTimePrekey(userId, deviceId) {
+  const rows = await postgresRows(
+    `update e2ee_one_time_prekeys
+     set claimed_at = now()
+     where user_id = $1
+       and device_id = $2
+       and prekey_id = (
+         select prekey_id
+         from e2ee_one_time_prekeys
+         where user_id = $1 and device_id = $2 and claimed_at is null
+         order by created_at asc
+         limit 1
+       )
+     returning prekey_id, prekey`,
+    [userId, deviceId]
+  );
+  const row = rows[0];
+  return row ? { id: row.prekey_id, key: row.prekey } : null;
+}
+
+async function listConversationKeyEnvelopes(auth, conversationId, searchParams) {
+  await ensureConversationAccess(auth, conversationId);
+  await ensurePostgresRuntimeSchema();
+  const deviceId = normalizeDeviceId(searchParams.get("deviceId") || "");
+  const rows = await postgresRows(
+    `select conversation_id, recipient_user_id, recipient_device_id, sender_user_id,
+            envelope_version, algorithm, encrypted_key, created_at, updated_at
+     from e2ee_conversation_key_envelopes
+     where conversation_id = $1
+       and recipient_user_id = $2
+       and recipient_device_id = $3
+     order by updated_at desc`,
+    [conversationId, auth.user.id, deviceId]
+  );
+  return { ok: true, envelopes: rows.map(mapKeyEnvelopeRow) };
+}
+
+async function saveConversationKeyEnvelopes(auth, conversationId, body) {
+  await ensureConversationAccess(auth, conversationId);
+  await ensurePostgresRuntimeSchema();
+  const envelopes = Array.isArray(body.envelopes) ? body.envelopes.slice(0, 250) : [];
+  if (!envelopes.length) {
+    throw new Error("At least one key envelope is required.");
+  }
+
+  const saved = [];
+  for (const envelope of envelopes) {
+    const recipientUserId = String(envelope.recipientUserId || "").trim();
+    const recipientDeviceId = normalizeDeviceId(envelope.recipientDeviceId || "");
+    const encryptedKey = String(envelope.encryptedKey || "").trim();
+    const algorithm = String(envelope.algorithm || "x3dh-aes-gcm").trim().slice(0, 80);
+    if (!recipientUserId || !encryptedKey) {
+      throw new Error("recipientUserId, recipientDeviceId, and encryptedKey are required.");
+    }
+    await ensureConversationMember(conversationId, recipientUserId, auth.companyId);
+    const rows = await postgresRows(
+      `insert into e2ee_conversation_key_envelopes (
+         conversation_id, recipient_user_id, recipient_device_id, sender_user_id,
+         envelope_version, algorithm, encrypted_key, created_at, updated_at
+       )
+       values ($1, $2, $3, $4, $5, $6, $7, now(), now())
+       on conflict (conversation_id, recipient_user_id, recipient_device_id)
+       do update set
+         sender_user_id = excluded.sender_user_id,
+         envelope_version = e2ee_conversation_key_envelopes.envelope_version + 1,
+         algorithm = excluded.algorithm,
+         encrypted_key = excluded.encrypted_key,
+         updated_at = now()
+       returning conversation_id, recipient_user_id, recipient_device_id, sender_user_id,
+                 envelope_version, algorithm, encrypted_key, created_at, updated_at`,
+      [
+        conversationId,
+        recipientUserId,
+        recipientDeviceId,
+        auth.user.id,
+        Number(envelope.envelopeVersion || 1),
+        algorithm,
+        encryptedKey
+      ]
+    );
+    saved.push(mapKeyEnvelopeRow(rows[0]));
+  }
+
+  broadcastRealtime(auth.companyId, { type: "e2ee.key-envelopes.updated", conversationId });
+  return { ok: true, envelopes: saved };
+}
+
+async function ensureConversationMember(conversationId, userId, companyId) {
+  await syncCompanyConversationMemberships(companyId);
+  const rows = await postgresRows(
+    `select cm.user_id
+     from conversation_members cm
+     join conversations c on c.id = cm.conversation_id
+     where cm.conversation_id = $1 and cm.user_id = $2 and c.company_id = $3
+     limit 1`,
+    [conversationId, userId, companyId]
+  );
+  if (!rows[0]) {
+    throw new Error("Recipient is not in this workspace.");
+  }
+}
+
+function mapE2eeDeviceRow(row) {
+  return {
+    deviceId: row.device_id,
+    deviceLabel: row.device_label,
+    identityKey: row.identity_key,
+    signedPrekeyId: row.signed_prekey_id,
+    signedPrekey: row.signed_prekey,
+    signedPrekeySignature: row.signed_prekey_signature,
+    registrationId: row.registration_id || "",
+    updatedAt: row.updated_at,
+    revokedAt: row.revoked_at || null
+  };
+}
+
+function mapKeyEnvelopeRow(row) {
+  return {
+    conversationId: row.conversation_id,
+    recipientUserId: row.recipient_user_id,
+    recipientDeviceId: row.recipient_device_id,
+    senderUserId: row.sender_user_id,
+    envelopeVersion: row.envelope_version,
+    algorithm: row.algorithm,
+    encryptedKey: row.encrypted_key,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function normalizeDeviceId(value) {
+  const deviceId = String(value || "").trim().slice(0, 120);
+  if (!deviceId) {
+    throw new Error("deviceId is required.");
+  }
+  return deviceId;
+}
+
+function normalizePublicKeyJson(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be a public JWK object.`);
+  }
+  const json = JSON.stringify(value);
+  if (json.length > 5000) {
+    throw new Error(`${label} is too large.`);
+  }
+  return value;
+}
+
 async function getMessageConversation(auth, messageId) {
   const rows = await postgresRows(
     `select c.id
@@ -958,9 +1525,10 @@ function mapMessageRow(row, currentUserId) {
     id: row.id,
     senderId: row.sender_id,
     sender: row.sender_id === currentUserId ? "me" : "them",
-    preview: row.plain_preview || "",
+    preview: row.plain_preview || "[Encrypted message]",
     encrypted: row.encrypted_body || "",
     attachments: row.attachment_json || [],
+    replyTo: row.reply_to_json || null,
     reactions: row.reactions || [],
     readBy: row.read_by || [],
     time: formatServerTime(row.created_at),
@@ -1004,6 +1572,15 @@ function normalizeOptionalDate(value) {
   return date.toISOString();
 }
 
+function normalizeReplyTo(replyTo) {
+  if (!replyTo || typeof replyTo !== "object" || !replyTo.text) return null;
+  return {
+    id: String(replyTo.id || "").slice(0, 120),
+    sender: String(replyTo.sender || "Message").slice(0, 80),
+    text: String(replyTo.text || "").replace(/\s+/g, " ").trim().slice(0, 120)
+  };
+}
+
 function formatServerTime(value) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
@@ -1020,8 +1597,8 @@ function setupRealtime(httpServer) {
   wss.on("connection", async (socket, req) => {
     try {
       const url = new URL(req.url, PUBLIC_BACKEND_URL);
-      const token = url.searchParams.get("token") || "";
-      const auth = await getAuthContextByToken(token);
+      const ticket = url.searchParams.get("ticket") || "";
+      const auth = await consumeRealtimeTicket(ticket);
       const companyClients = realtimeClients.get(auth.companyId) || new Set();
       companyClients.add(socket);
       realtimeClients.set(auth.companyId, companyClients);
@@ -1049,16 +1626,60 @@ function broadcastRealtime(companyId, payload) {
   });
 }
 
-function startOAuth(providerId, url, res) {
+async function createRealtimeSession(auth) {
+  const ticket = crypto.randomBytes(24).toString("base64url");
+  realtimeTickets.set(ticket, {
+    token: auth.token,
+    companyId: auth.companyId,
+    userId: auth.user.id,
+    expiresAt: Date.now() + REALTIME_TICKET_TTL_MS
+  });
+  pruneRealtimeTickets();
+  return { ok: true, ticket, expiresInMs: REALTIME_TICKET_TTL_MS };
+}
+
+async function consumeRealtimeTicket(ticket) {
+  if (!ticket) {
+    throw new Error("Realtime ticket is required.");
+  }
+  const record = realtimeTickets.get(ticket);
+  realtimeTickets.delete(ticket);
+  if (!record || record.expiresAt < Date.now()) {
+    throw new Error("Realtime session expired. Please reconnect.");
+  }
+  return getAuthContextByToken(record.token);
+}
+
+function pruneRealtimeTickets() {
+  const now = Date.now();
+  realtimeTickets.forEach((value, key) => {
+    if (!value || value.expiresAt < now) {
+      realtimeTickets.delete(key);
+    }
+  });
+}
+
+async function startOAuth(providerId, url, res) {
   const provider = getProvider(providerId);
   requireProviderConfig(provider);
 
-  const userId = url.searchParams.get("userId") || "demo-user";
+  let auth = null;
+  const token = url.searchParams.get("token") || "";
+  if (token) {
+    try {
+      auth = await getAuthContextByToken(token);
+    } catch {
+      auth = null;
+    }
+  }
+
+  const userId = auth?.user?.id || url.searchParams.get("userId") || "demo-user";
   const state = crypto.randomBytes(24).toString("hex");
   const store = readStore();
   store.oauthStates[state] = {
     provider: providerId,
     userId,
+    companyId: auth?.companyId || "",
     createdAt: new Date().toISOString()
   };
   writeStore(store);
@@ -1071,6 +1692,11 @@ function startOAuth(providerId, url, res) {
 
   if (providerId === "jira") {
     authUrl.searchParams.set("audience", "api.atlassian.com");
+    authUrl.searchParams.set("prompt", "consent");
+  }
+
+  if (providerId === "google_calendar") {
+    authUrl.searchParams.set("access_type", "offline");
     authUrl.searchParams.set("prompt", "consent");
   }
 
@@ -1100,12 +1726,21 @@ async function finishOAuth(providerId, url, res) {
   }
 
   const token = await exchangeCode(provider, code);
-  store.connections[providerId] = {
-    provider: providerId,
-    userId: storedState.userId,
-    token,
-    connectedAt: new Date().toISOString()
-  };
+  if (hasPostgresConfig() && storedState.companyId) {
+    await saveIntegrationConnection({
+      companyId: storedState.companyId,
+      providerId,
+      token,
+      connectedBy: storedState.userId
+    });
+  } else {
+    store.connections[providerId] = {
+      provider: providerId,
+      userId: storedState.userId,
+      token,
+      connectedAt: new Date().toISOString()
+    };
+  }
   delete store.oauthStates[state];
   writeStore(store);
 
@@ -1137,7 +1772,7 @@ async function exchangeCode(provider, code) {
 }
 
 async function createAsanaTask(body) {
-  const connection = getConnection("asana");
+  const connection = await getConnection("asana", body.companyId);
   const workspace = process.env.ASANA_WORKSPACE_GID || body.workspace;
   if (!workspace) {
     throw new Error("Missing ASANA_WORKSPACE_GID or request workspace.");
@@ -1153,6 +1788,31 @@ async function createAsanaTask(body) {
         due_on: body.due || undefined,
         projects: body.project ? [body.project] : undefined
       }
+    }),
+    {
+      Authorization: `Bearer ${connection.token.access_token}`,
+      "Content-Type": "application/json"
+    }
+  );
+}
+
+async function createGoogleCalendarEvent(auth, body) {
+  const companyId = auth?.companyId || body.companyId || "";
+  const connection = await getConnection("google_calendar", companyId);
+  const calendarId = encodeURIComponent(body.calendarId || "primary");
+  const title = String(body.title || "TodoMessenger follow-up").slice(0, 220);
+  const due = body.due || body.start || new Date().toISOString();
+  const start = normalizeOptionalDate(due) || new Date().toISOString();
+  const endDate = new Date(start);
+  endDate.setMinutes(endDate.getMinutes() + Number(body.durationMinutes || 30));
+
+  return postJson(
+    `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
+    JSON.stringify({
+      summary: title,
+      description: body.description || body.reason || "Created from TodoMessenger Blu.",
+      start: { dateTime: start },
+      end: { dateTime: endDate.toISOString() }
     }),
     {
       Authorization: `Bearer ${connection.token.access_token}`,
@@ -1177,7 +1837,7 @@ async function askBlu(body) {
       JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
         instructions:
-          "You are Blu, the AI assistant inside TodoMessenger. Answer clearly and concisely. If the user asks for a task, suggest a short actionable task title.",
+          "You are Blu, the AI assistant inside TodoMessenger. Answer clearly and concisely in mobile-friendly formatting. Use short section headings on their own lines and bullet points on separate lines. Do not write dense paragraphs. Do not use markdown heading symbols like ###. If the user asks for a task, suggest a short actionable task title.",
         input: `${context}\n\nUser request:\n${prompt}`,
         max_output_tokens: 700
       }),
@@ -1237,8 +1897,8 @@ async function suggestTasks(body) {
     JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
       instructions:
-        "You extract actionable to-do tasks from a chat. Return only JSON with a tasks array. Each task must have title, assignee, priority, due, and reason. priority must be low, normal, or high. due should be an ISO date string or empty string. If the assignee is unclear, use Me. Keep titles short.",
-      input: `Conversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","assignee":"Me","priority":"normal","due":"","reason":"..."}]}.`,
+        "You extract actionable to-do tasks from a chat. Return only JSON with a tasks array. Each task must have title, assignee, priority, due, and reason. assignee may contain multiple people as a comma-separated string, for example \"Alex, Sarah\". priority must be low, normal, or high. due should be an ISO date string or empty string. If the assignee is unclear, use Me. Keep titles short.",
+      input: `Conversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","assignee":"Alex, Sarah","priority":"normal","due":"","reason":"..."}]}.`,
       max_output_tokens: 800
     }),
     {
@@ -1248,6 +1908,388 @@ async function suggestTasks(body) {
   );
 
   return normalizeSuggestedTasks(extractResponseText(data));
+}
+
+async function planBluAgentActions(auth, body) {
+  const prompt = String(body.prompt || "").trim();
+  const context = String(body.context || "").trim();
+  const conversationName = String(body.conversationName || "Current chat").trim();
+
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const data = await postJson(
+        "https://api.openai.com/v1/responses",
+        JSON.stringify({
+          model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
+          instructions:
+            "You are Blu, an AI workspace agent inside TodoMessenger. Return only JSON. Propose actions the user can approve. Never claim an action is completed. Supported action types: create_task, draft_reply, schedule_reminder, sync_external. Every action needs approval. Keep task titles short. assignee may contain multiple names separated by commas. due must be ISO date or empty.",
+          input: `Conversation: ${conversationName}\nUser request: ${prompt}\n\nRecent context:\n${context}\n\nReturn JSON shaped like {"summary":"...","actions":[{"type":"create_task","title":"...","assignee":"Me","priority":"normal","due":"","reason":"...","needsApproval":true}]}.`,
+          max_output_tokens: 900
+        }),
+        {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      );
+      const plan = normalizeAgentPlan(extractResponseText(data), { prompt, context });
+      plan.actions = await persistBluAgentActions(auth, plan.actions, { prompt, summary: plan.summary, source: "blu-plan" });
+      await recordBluAgentEvent(auth, { eventType: "plan.created", prompt, summary: plan.summary, actions: plan.actions });
+      return { ok: true, ...plan, responseId: data.id };
+    } catch (error) {
+      const plan = createFallbackAgentPlan({ prompt, context });
+      plan.actions = await persistBluAgentActions(auth, plan.actions, { prompt, summary: plan.summary, source: "blu-plan-fallback" });
+      await recordBluAgentEvent(auth, { eventType: "plan.fallback", prompt, summary: plan.summary, actions: plan.actions, error: normalizeError(error) });
+      return { ok: true, ...plan, mode: "local-fallback", message: normalizeError(error) };
+    }
+  }
+
+  const plan = createFallbackAgentPlan({ prompt, context });
+  plan.actions = await persistBluAgentActions(auth, plan.actions, { prompt, summary: plan.summary, source: "blu-plan-fallback" });
+  await recordBluAgentEvent(auth, { eventType: "plan.fallback", prompt, summary: plan.summary, actions: plan.actions });
+  return { ok: true, ...plan, mode: "local-fallback" };
+}
+
+function normalizeAgentPlan(text, fallbackSource = {}) {
+  try {
+    const parsed = JSON.parse(stripCodeFence(text));
+    const actions = Array.isArray(parsed.actions) ? parsed.actions : [];
+    return {
+      summary: String(parsed.summary || "Blu prepared a plan for this conversation.").slice(0, 260),
+      actions: actions.map(normalizeAgentAction).filter(Boolean).slice(0, 6)
+    };
+  } catch {
+    return createFallbackAgentPlan(fallbackSource);
+  }
+}
+
+function normalizeAgentAction(action) {
+  const type = String(action.type || "").trim();
+  if (!["create_task", "draft_reply", "schedule_reminder", "sync_external"].includes(type)) return null;
+  const title = String(action.title || action.text || action.message || "").trim().slice(0, 220);
+  if (!title) return null;
+  const priority = normalizePriority(action.priority || "normal");
+  return {
+    id: crypto.randomUUID(),
+    type,
+    title,
+    assignee: String(action.assignee || "Me").slice(0, 120),
+    priority,
+    due: typeof action.due === "string" ? action.due : "",
+    reminderAt: typeof action.reminderAt === "string" ? action.reminderAt : "",
+    provider: String(action.provider || "").slice(0, 80),
+    reason: String(action.reason || "Blu suggested this action from the chat.").slice(0, 180),
+    needsApproval: action.needsApproval !== false,
+    status: "pending"
+  };
+}
+
+function createFallbackAgentPlan({ prompt = "", context = "" } = {}) {
+  const lowerPrompt = String(prompt || "").toLowerCase();
+  const extracted = extractTasksWithoutAi(context || prompt);
+  const actions = extracted.tasks.map((task) => normalizeAgentAction({
+    type: "create_task",
+    title: task.title,
+    assignee: task.assignee,
+    priority: task.priority,
+    due: task.due,
+    reason: task.reason,
+    needsApproval: true
+  })).filter(Boolean);
+
+  if (lowerPrompt.includes("reply") || lowerPrompt.includes("draft")) {
+    actions.push(normalizeAgentAction({
+      type: "draft_reply",
+      title: "Thanks. I will review this and come back with the next update.",
+      reason: "Drafted from the requested reply intent.",
+      needsApproval: true
+    }));
+  }
+
+  return {
+    summary: actions.length
+      ? `Blu found ${actions.length} action${actions.length === 1 ? "" : "s"} you can approve.`
+      : "Blu did not find a safe action to take yet. Try asking Blu to organize the chat, create a task, or draft a reply.",
+    actions: actions.slice(0, 6)
+  };
+}
+
+async function recordBluAgentEvent(auth, body) {
+  const eventType = String(body.eventType || body.type || "agent.event").slice(0, 80);
+  const payload = {
+    prompt: body.prompt || "",
+    summary: body.summary || "",
+    actions: Array.isArray(body.actions) ? body.actions : [],
+    action: body.action || null,
+    result: body.result || null,
+    error: body.error || null
+  };
+
+  if (auth && hasPostgresConfig()) {
+    await ensurePostgresRuntimeSchema();
+    await postgresQuery(
+      `insert into blu_agent_events (id, company_id, user_id, event_type, payload_json, created_at)
+       values ($1, $2, $3, $4, $5, now())`,
+      [crypto.randomUUID(), auth.companyId, auth.user.id, eventType, JSON.stringify(payload)]
+    );
+  }
+
+  return { ok: true };
+}
+
+async function recordAdminAudit(auth, actionType, target = {}, requireAdmin = true) {
+  if (!auth?.companyId || !hasPostgresConfig()) return;
+  if (requireAdmin && !["admin", "team_lead"].includes(auth.user?.role)) return;
+  await ensurePostgresRuntimeSchema();
+  await postgresQuery(
+    `insert into admin_audit_events (id, company_id, actor_user_id, action_type, target_json, created_at)
+     values ($1, $2, $3, $4, $5::jsonb, now())`,
+    [
+      crypto.randomUUID(),
+      auth.companyId,
+      auth.user?.id || null,
+      String(actionType || "admin.event").slice(0, 120),
+      JSON.stringify(target || {})
+    ]
+  );
+}
+
+async function listAdminAuditEvents(auth, searchParams) {
+  if (!["admin", "team_lead"].includes(auth.user?.role)) {
+    throw new Error("Only admins and team leads can view the audit log.");
+  }
+  if (!hasPostgresConfig()) return { ok: true, events: [] };
+  await ensurePostgresRuntimeSchema();
+  const limit = Math.min(Math.max(Number(searchParams.get("limit") || 50), 1), 200);
+  const rows = await postgresRows(
+    `select a.id, a.action_type, a.target_json, a.created_at, a.actor_user_id, u.name as actor_name, u.email as actor_email
+     from admin_audit_events a
+     left join users u on u.id = a.actor_user_id
+     where a.company_id = $1
+     order by a.created_at desc
+     limit $2`,
+    [auth.companyId, limit]
+  );
+  return {
+    ok: true,
+    events: rows.map((row) => ({
+      id: row.id,
+      actionType: row.action_type,
+      actorUserId: row.actor_user_id,
+      actorName: row.actor_name || row.actor_email || "Unknown user",
+      actorEmail: row.actor_email || "",
+      target: row.target_json || {},
+      createdAt: row.created_at
+    }))
+  };
+}
+
+async function listBluAgentActions(auth) {
+  if (!hasPostgresConfig()) return { ok: true, actions: [] };
+  await ensurePostgresRuntimeSchema();
+  const rows = await postgresRows(
+    `select *
+     from blu_agent_actions
+     where company_id = $1
+     order by created_at desc
+     limit 100`,
+    [auth.companyId]
+  );
+  return { ok: true, actions: rows.map(mapBluAgentActionRow) };
+}
+
+async function createBluAgentAction(auth, body) {
+  if (!hasPostgresConfig()) {
+    const action = normalizeAgentAction({ ...body, type: body.type || body.actionType });
+    if (!action) throw new Error("A valid Blu action is required.");
+    return { ok: true, action };
+  }
+  await ensurePostgresRuntimeSchema();
+  const action = normalizeAgentAction({
+    ...body,
+    type: body.type || body.actionType,
+    needsApproval: body.needsApproval !== false
+  });
+  if (!action) throw new Error("A valid Blu action is required.");
+  const saved = await insertBluAgentAction(auth, action, body.source || "manual", body);
+  await recordBluAgentEvent(auth, { eventType: "action.created", action: saved });
+  return { ok: true, action: saved };
+}
+
+async function updateBluAgentAction(auth, actionId, body) {
+  if (!hasPostgresConfig()) {
+    return { ok: true, action: { id: actionId, status: normalizeAgentStatus(body.status) || "pending" } };
+  }
+  await ensurePostgresRuntimeSchema();
+  const status = normalizeAgentStatus(body.status || (body.approved ? "approved" : ""));
+  if (!status) throw new Error("A valid action status is required.");
+  const rows = await postgresRows(
+    `update blu_agent_actions
+     set status = $3,
+         payload_json = payload_json || $4::jsonb,
+         updated_at = now(),
+         completed_at = case when $3 in ('completed', 'rejected', 'failed') then now() else completed_at end
+     where id = $1 and company_id = $2
+     returning *`,
+    [
+      actionId,
+      auth.companyId,
+      status,
+      JSON.stringify({
+        result: body.result || null,
+        error: body.error || null,
+        updatedBy: auth.user.id
+      })
+    ]
+  );
+  if (!rows[0]) throw new Error("Blu action not found.");
+  const action = mapBluAgentActionRow(rows[0]);
+  await recordBluAgentEvent(auth, { eventType: `action.${status}`, action });
+  broadcastRealtime(auth.companyId, { type: "blu.action.updated", action });
+  return { ok: true, action };
+}
+
+async function getBluAgentPolicy(auth) {
+  if (!hasPostgresConfig()) {
+    return { ok: true, policy: mapBluPolicyRow({}) };
+  }
+  await ensurePostgresRuntimeSchema();
+  return { ok: true, policy: await ensureBluAgentPolicy(auth.companyId) };
+}
+
+async function updateBluAgentPolicy(auth, body) {
+  if (!["admin", "team_lead"].includes(auth.user.role)) {
+    throw new Error("Only admins and team leads can update Blu policy.");
+  }
+  if (!hasPostgresConfig()) return { ok: true, policy: normalizeBluPolicy(body) };
+  await ensurePostgresRuntimeSchema();
+  const policy = normalizeBluPolicy(body);
+  const rows = await postgresRows(
+    `insert into blu_agent_policy (
+       company_id, require_approval, allow_internal_task_creation,
+       allow_external_sync, allow_background_jobs, allowed_providers, updated_at
+     )
+     values ($1, $2, $3, $4, $5, $6::jsonb, now())
+     on conflict (company_id)
+     do update set
+       require_approval = excluded.require_approval,
+       allow_internal_task_creation = excluded.allow_internal_task_creation,
+       allow_external_sync = excluded.allow_external_sync,
+       allow_background_jobs = excluded.allow_background_jobs,
+       allowed_providers = excluded.allowed_providers,
+       updated_at = now()
+     returning *`,
+    [
+      auth.companyId,
+      policy.requireApproval,
+      policy.allowInternalTaskCreation,
+      policy.allowExternalSync,
+      policy.allowBackgroundJobs,
+      JSON.stringify(policy.allowedProviders)
+    ]
+  );
+  const saved = mapBluPolicyRow(rows[0]);
+  await recordAdminAudit(auth, "blu.policy.updated", saved);
+  await recordBluAgentEvent(auth, { eventType: "policy.updated", result: saved });
+  broadcastRealtime(auth.companyId, { type: "blu.policy.updated", policy: saved });
+  return { ok: true, policy: saved };
+}
+
+async function persistBluAgentActions(auth, actions, meta = {}) {
+  if (!auth || !hasPostgresConfig() || !Array.isArray(actions) || !actions.length) return actions;
+  await ensurePostgresRuntimeSchema();
+  const saved = [];
+  for (const action of actions) {
+    saved.push(await insertBluAgentAction(auth, action, meta.source || "blu", meta));
+  }
+  return saved;
+}
+
+async function insertBluAgentAction(auth, action, source = "blu", meta = {}) {
+  const rows = await postgresRows(
+    `insert into blu_agent_actions (
+       id, company_id, user_id, conversation_id, action_type, title, assignee,
+       priority, due_at, status, source, reason, payload_json, created_at, updated_at
+     )
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12::jsonb, now(), now())
+     returning *`,
+    [
+      action.id || crypto.randomUUID(),
+      auth.companyId,
+      auth.user.id,
+      meta.conversationId || null,
+      action.type,
+      action.title,
+      action.assignee || "Me",
+      normalizePriority(action.priority),
+      normalizeOptionalDate(action.due),
+      source,
+      action.reason || "",
+      JSON.stringify({ ...action, prompt: meta.prompt || "", summary: meta.summary || "" })
+    ]
+  );
+  const saved = mapBluAgentActionRow(rows[0]);
+  broadcastRealtime(auth.companyId, { type: "blu.action.created", action: saved });
+  return saved;
+}
+
+async function ensureBluAgentPolicy(companyId) {
+  const rows = await postgresRows("select * from blu_agent_policy where company_id = $1 limit 1", [companyId]);
+  if (rows[0]) return mapBluPolicyRow(rows[0]);
+  const inserted = await postgresRows(
+    `insert into blu_agent_policy (
+       company_id, require_approval, allow_internal_task_creation,
+       allow_external_sync, allow_background_jobs, allowed_providers, created_at, updated_at
+     )
+     values ($1, true, true, false, false, $2::jsonb, now(), now())
+     returning *`,
+    [companyId, JSON.stringify(["google_calendar"])]
+  );
+  return mapBluPolicyRow(inserted[0]);
+}
+
+function normalizeBluPolicy(body) {
+  return {
+    requireApproval: body.requireApproval !== false,
+    allowInternalTaskCreation: body.allowInternalTaskCreation !== false,
+    allowExternalSync: body.allowExternalSync === true,
+    allowBackgroundJobs: body.allowBackgroundJobs === true,
+    allowedProviders: Array.isArray(body.allowedProviders)
+      ? body.allowedProviders.map((provider) => String(provider).slice(0, 80)).filter(Boolean)
+      : ["google_calendar"]
+  };
+}
+
+function normalizeAgentStatus(value) {
+  const status = String(value || "").toLowerCase();
+  return ["pending", "approved", "rejected", "completed", "failed"].includes(status) ? status : "";
+}
+
+function mapBluAgentActionRow(row) {
+  return {
+    id: row.id,
+    type: row.action_type,
+    title: row.title,
+    assignee: row.assignee || "Me",
+    priority: row.priority || "normal",
+    due: row.due_at ? new Date(row.due_at).toISOString().slice(0, 10) : "",
+    status: row.status || "pending",
+    source: row.source || "blu",
+    reason: row.reason || "",
+    payload: row.payload_json || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at || null
+  };
+}
+
+function mapBluPolicyRow(row) {
+  return {
+    requireApproval: row.require_approval !== false,
+    allowInternalTaskCreation: row.allow_internal_task_creation !== false,
+    allowExternalSync: row.allow_external_sync === true,
+    allowBackgroundJobs: row.allow_background_jobs === true,
+    allowedProviders: row.allowed_providers || []
+  };
 }
 
 function normalizeSuggestedTasks(text) {
@@ -1335,19 +2377,67 @@ function extractTasksWithoutAi(context) {
 
 function inferDueDate(text) {
   const now = new Date();
-  if (text.includes("today")) return now.toISOString().slice(0, 10);
   if (text.includes("tomorrow")) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().slice(0, 10);
   }
+  const weekdayDue = inferWeekdayDue(text);
+  if (weekdayDue) return weekdayDue;
+  const dayOfMonthDue = inferDayOfMonthDue(text);
+  if (dayOfMonthDue) return dayOfMonthDue;
+  if (/\b(today|eod|end of day|cob|close of business)\b/i.test(text)) return now.toISOString().slice(0, 10);
   const isoMatch = text.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
   return isoMatch ? isoMatch[1] : "";
 }
 
-function registerPushToken(body) {
+function inferWeekdayDue(text) {
+  const match = String(text || "").match(/\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i);
+  if (!match) return "";
+  const weekdays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  const targetDay = weekdays.findIndex((day) => match[1].toLowerCase().startsWith(day));
+  if (targetDay < 0) return "";
+  const due = new Date();
+  const daysUntil = (targetDay - due.getDay() + 7) % 7;
+  due.setDate(due.getDate() + daysUntil);
+  return due.toISOString().slice(0, 10);
+}
+
+function inferDayOfMonthDue(text) {
+  const match = String(text || "").match(/\b(\d{1,2})\s*(?:st|nd|rd|th)?(?:'s)?\s*(?:eod|end of day|cob|close of business)\b/i);
+  if (!match) return "";
+  const day = Number(match[1]);
+  if (!Number.isInteger(day) || day < 1 || day > 31) return "";
+
+  const now = new Date();
+  let due = new Date(now.getFullYear(), now.getMonth(), day);
+  if (due.getMonth() !== now.getMonth()) return "";
+  if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+    due = new Date(now.getFullYear(), now.getMonth() + 1, day);
+    if (due.getDate() !== day) return "";
+  }
+  return due.toISOString().slice(0, 10);
+}
+
+async function registerPushToken(auth, body) {
   if (!body.token) {
     throw new Error("Missing push token.");
+  }
+
+  if (auth && hasPostgresConfig()) {
+    await postgresQuery(
+      `insert into push_tokens (id, user_id, token, platform, created_at, updated_at)
+       values ($1, $2, $3, $4, now(), now())
+       on conflict (token)
+       do update set user_id = excluded.user_id, platform = excluded.platform, updated_at = now()`,
+      [
+        crypto.randomUUID(),
+        auth.user.id,
+        String(body.token),
+        String(body.platform || "android").slice(0, 40)
+      ]
+    );
+    return { ok: true, registered: true, storage: "postgresql" };
   }
 
   const store = readStore();
@@ -1362,10 +2452,28 @@ function registerPushToken(body) {
     ...store.pushTokens.filter((item) => item.token !== tokenRecord.token)
   ].slice(0, 1000);
   writeStore(store);
-  return { ok: true, registered: true };
+  return { ok: true, registered: true, storage: "json-store" };
 }
 
-async function sendTestPush(body) {
+async function sendTestPush(auth, body) {
+  if (auth && hasPostgresConfig() && !body.token) {
+    const rows = await postgresRows(
+      `select token from push_tokens
+       where user_id = $1
+       order by updated_at desc
+       limit 1`,
+      [auth.user.id]
+    );
+    if (rows[0]?.token) {
+      return sendFcmMessage({
+        token: rows[0].token,
+        title: body.title || "TodoMessenger reminder",
+        body: body.body || "This is a Firebase Cloud Messaging test.",
+        data: body.data || {}
+      });
+    }
+  }
+
   const store = readStore();
   const token = body.token ||
     (body.userId ? store.pushTokens.find((item) => item.userId === body.userId)?.token : store.pushTokens[0]?.token);
@@ -1381,7 +2489,7 @@ async function sendTestPush(body) {
   });
 }
 
-function scheduleReminder(body) {
+async function scheduleReminder(auth, body) {
   if (!body.id || !body.title || !body.reminderAt) {
     throw new Error("Reminder requires id, title, and reminderAt.");
   }
@@ -1389,6 +2497,22 @@ function scheduleReminder(body) {
   const reminderTime = new Date(body.reminderAt).getTime();
   if (!Number.isFinite(reminderTime)) {
     throw new Error("Invalid reminderAt.");
+  }
+
+  if (auth && hasPostgresConfig()) {
+    const rows = await postgresRows(
+      `update tasks
+       set reminder_at = $3,
+           reminder_sent_at = null,
+           updated_at = now()
+       where id = $1 and company_id = $2
+       returning id, reminder_at`,
+      [String(body.id), auth.companyId, new Date(reminderTime).toISOString()]
+    );
+    if (!rows[0]) {
+      throw new Error("Task not found for reminder scheduling.");
+    }
+    return { ok: true, scheduled: true, reminderAt: rows[0].reminder_at, storage: "postgresql" };
   }
 
   const store = readStore();
@@ -1412,22 +2536,38 @@ function scheduleReminder(body) {
     ...store.scheduledReminders.filter((item) => item.id !== reminder.id)
   ].slice(0, 2000);
   writeStore(store);
-  return { ok: true, scheduled: true, reminderAt: reminder.reminderAt };
+  return { ok: true, scheduled: true, reminderAt: reminder.reminderAt, storage: "json-store" };
 }
 
-function cancelReminder(body) {
+async function cancelReminder(auth, body) {
   if (!body.id) {
     throw new Error("Missing reminder id.");
+  }
+
+  if (auth && hasPostgresConfig()) {
+    const result = await postgresQuery(
+      `update tasks
+       set reminder_at = null,
+           reminder_sent_at = null,
+           updated_at = now()
+       where id = $1 and company_id = $2`,
+      [String(body.id), auth.companyId]
+    );
+    return { ok: true, cancelled: result.rowCount > 0, storage: "postgresql" };
   }
 
   const store = readStore();
   const before = store.scheduledReminders.length;
   store.scheduledReminders = store.scheduledReminders.filter((item) => item.id !== String(body.id));
   writeStore(store);
-  return { ok: true, cancelled: before !== store.scheduledReminders.length };
+  return { ok: true, cancelled: before !== store.scheduledReminders.length, storage: "json-store" };
 }
 
 async function processDueReminders() {
+  if (hasPostgresConfig()) {
+    await processDuePostgresReminders();
+  }
+
   const store = readStore();
   const now = Date.now();
   const due = store.scheduledReminders.filter((reminder) => (
@@ -1469,6 +2609,59 @@ async function processDueReminders() {
     store.scheduledReminders = store.scheduledReminders.slice(0, 2000);
     writeStore(store);
   }
+}
+
+async function processDuePostgresReminders() {
+  const dueTasks = await postgresRows(
+    `select
+       t.id, t.title, t.assignee_id, t.created_by, t.company_id, t.reminder_at,
+       coalesce(c.name, 'TodoMessenger') as conversation_name,
+       coalesce(assignee.name, creator.name, 'Me') as assignee_name
+     from tasks t
+     left join conversations c on c.id = t.conversation_id
+     left join users assignee on assignee.id = t.assignee_id
+     join users creator on creator.id = t.created_by
+     where t.status = 'open'
+       and t.reminder_at is not null
+       and t.reminder_sent_at is null
+       and t.reminder_at <= now()
+     order by t.reminder_at asc
+     limit 25`
+  );
+
+  for (const task of dueTasks) {
+    try {
+      const token = await getPostgresPushToken(task.assignee_id || task.created_by, task.created_by);
+      if (!token) {
+        throw new Error("No push token registered.");
+      }
+      await sendFcmMessage({
+        token,
+        title: `Reminder: ${task.title}`,
+        body: `${task.conversation_name} - assigned to ${task.assignee_name || "Me"}`,
+        data: {
+          reminderId: task.id,
+          taskId: task.id,
+          type: "task_reminder"
+        }
+      });
+      await postgresQuery("update tasks set reminder_sent_at = now(), updated_at = now() where id = $1", [task.id]);
+    } catch (error) {
+      console.warn(`Reminder ${task.id} was not sent: ${normalizeError(error)}`);
+    }
+  }
+}
+
+async function getPostgresPushToken(primaryUserId, fallbackUserId) {
+  const rows = await postgresRows(
+    `select token
+     from push_tokens
+     where user_id = $1 or user_id = $2
+     order by case when user_id = $1 then 0 else 1 end, updated_at desc
+     limit 1`,
+    [primaryUserId, fallbackUserId]
+  );
+  return rows[0]?.token || "";
 }
 
 function getPushTokenForReminder(store, reminder) {
@@ -1568,7 +2761,7 @@ function extractResponseText(response) {
 }
 
 async function createJiraIssue(body) {
-  const connection = getConnection("jira");
+  const connection = await getConnection("jira", body.companyId);
   const cloudId = process.env.JIRA_CLOUD_ID || body.cloudId;
   const projectKey = process.env.JIRA_PROJECT_KEY || body.projectKey;
   if (!cloudId || !projectKey) {
@@ -1619,7 +2812,25 @@ async function postJson(url, body, headers) {
   return data;
 }
 
-function listIntegrations() {
+async function listIntegrations(auth = null) {
+  if (auth && hasPostgresConfig()) {
+    const rows = await postgresRows(
+      "select provider, connected_at from integrations where company_id = $1 order by provider asc",
+      [auth.companyId]
+    );
+    const byProvider = new Map(rows.map((row) => [row.provider, row]));
+    return Object.fromEntries(
+      Object.keys(PROVIDERS).map((providerId) => [
+        providerId,
+        {
+          configured: Boolean(PROVIDERS[providerId].clientId && PROVIDERS[providerId].clientSecret),
+          connected: byProvider.has(providerId),
+          connectedAt: byProvider.get(providerId)?.connected_at || null
+        }
+      ])
+    );
+  }
+
   const store = readStore();
   return Object.fromEntries(
     Object.keys(PROVIDERS).map((providerId) => [
@@ -1658,12 +2869,110 @@ function requireProviderConfig(provider) {
   }
 }
 
-function getConnection(providerId) {
+async function getConnection(providerId, companyId = "") {
+  if (hasPostgresConfig()) {
+    const params = companyId ? [providerId, companyId] : [providerId];
+    const rows = await postgresRows(
+      companyId
+        ? `select provider, access_token_encrypted, refresh_token_encrypted, connected_at
+           from integrations
+           where provider = $1 and company_id = $2
+           limit 1`
+        : `select provider, access_token_encrypted, refresh_token_encrypted, connected_at
+           from integrations
+           where provider = $1
+           order by connected_at desc nulls last
+           limit 1`,
+      params
+    );
+    const row = rows[0];
+    if (!row?.access_token_encrypted) {
+      throw new Error(`${providerId} is not connected yet.`);
+    }
+    return {
+      provider: providerId,
+      token: {
+        access_token: decryptSecret(row.access_token_encrypted),
+        refresh_token: row.refresh_token_encrypted ? decryptSecret(row.refresh_token_encrypted) : ""
+      },
+      connectedAt: row.connected_at
+    };
+  }
+
   const connection = readStore().connections[providerId];
   if (!connection?.token?.access_token) {
     throw new Error(`${providerId} is not connected yet.`);
   }
   return connection;
+}
+
+async function saveIntegrationConnection({ companyId, providerId, token, connectedBy }) {
+  const accessToken = token.access_token;
+  if (!accessToken) {
+    throw new Error(`${providerId} OAuth did not return an access token.`);
+  }
+  await postgresQuery(
+    `insert into integrations (
+       id, company_id, provider, access_token_encrypted, refresh_token_encrypted,
+       connected_by, connected_at, created_at, updated_at
+     )
+     values ($1, $2, $3, $4, $5, $6, now(), now(), now())
+     on conflict (company_id, provider)
+     do update set
+       access_token_encrypted = excluded.access_token_encrypted,
+       refresh_token_encrypted = excluded.refresh_token_encrypted,
+       connected_by = excluded.connected_by,
+       connected_at = now(),
+       updated_at = now()`,
+    [
+      crypto.randomUUID(),
+      companyId,
+      providerId,
+      encryptSecret(accessToken),
+      token.refresh_token ? encryptSecret(token.refresh_token) : null,
+      connectedBy || null
+    ]
+  );
+}
+
+function encryptSecret(value) {
+  const key = getTokenEncryptionKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]);
+  return JSON.stringify({
+    v: 1,
+    alg: "aes-256-gcm",
+    iv: iv.toString("base64url"),
+    tag: cipher.getAuthTag().toString("base64url"),
+    data: encrypted.toString("base64url")
+  });
+}
+
+function decryptSecret(payload) {
+  const parsed = JSON.parse(payload);
+  const key = getTokenEncryptionKey();
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(parsed.iv, "base64url"));
+  decipher.setAuthTag(Buffer.from(parsed.tag, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(parsed.data, "base64url")),
+    decipher.final()
+  ]).toString("utf8");
+}
+
+function getTokenEncryptionKey() {
+  const raw = process.env.TOKEN_ENCRYPTION_KEY || "";
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("TOKEN_ENCRYPTION_KEY is required in production.");
+    }
+    return crypto.createHash("sha256").update("todomessenger-local-token-key").digest();
+  }
+
+  const decoded = Buffer.from(raw, "base64url");
+  if (decoded.length === 32) return decoded;
+  if (/^[a-f0-9]{64}$/i.test(raw)) return Buffer.from(raw, "hex");
+  return crypto.createHash("sha256").update(raw).digest();
 }
 
 function ensureStore() {
@@ -1717,27 +3026,138 @@ function sendHtml(res, status, html) {
 }
 
 function sendNoContent(res) {
-  addCors(res);
   res.writeHead(204);
   res.end();
 }
 
 function send(res, status, body, contentType) {
-  addCors(res);
   res.writeHead(status, { "Content-Type": contentType });
   res.end(body);
 }
 
 function redirect(res, location) {
-  addCors(res);
   res.writeHead(302, { Location: location });
   res.end();
 }
 
-function addCors(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+function applyResponseSecurity(req, res) {
+  addCors(req, res);
+  res.setHeader("Vary", appendVaryHeader(res.getHeader("Vary"), "Origin"));
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Cache-Control", "no-store");
+  if (isProduction()) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  if ((req.headers.accept || "").includes("text/html")) {
+    res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  }
+}
+
+function addCors(req, res) {
+  const origin = getRequestOrigin(req);
+  if (origin && isAllowedOriginValue(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+}
+
+function getRequestOrigin(req) {
+  return String(req.headers.origin || "").trim();
+}
+
+function isCorsOriginAllowed(req) {
+  const origin = getRequestOrigin(req);
+  if (!origin) return true;
+  return isAllowedOriginValue(origin);
+}
+
+function isAllowedOriginValue(origin) {
+  if (!origin) return true;
+  if (origin === "null") {
+    return !isProduction() || process.env.ALLOW_NULL_ORIGIN === "true";
+  }
+  return FRONTEND_ORIGINS.has(origin);
+}
+
+function appendVaryHeader(existing, value) {
+  const items = String(existing || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!items.includes(value)) items.push(value);
+  return items.join(", ");
+}
+
+function enforceRateLimit(req, url) {
+  const ip = getClientIp(req);
+  const bucket = getRateLimitBucket(url.pathname);
+  const config = getRateLimitConfig(bucket);
+  const key = `${bucket}:${ip}`;
+  const now = Date.now();
+  const current = rateLimitBuckets.get(key);
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(key, { count: 1, resetAt: now + config.windowMs });
+    pruneRateLimitBuckets(now);
+    return;
+  }
+  current.count += 1;
+  if (current.count > config.max) {
+    const error = new Error("Too many requests. Please slow down and try again.");
+    error.statusCode = 429;
+    throw error;
+  }
+}
+
+function pruneRateLimitBuckets(now = Date.now()) {
+  rateLimitBuckets.forEach((value, key) => {
+    if (!value || value.resetAt <= now) {
+      rateLimitBuckets.delete(key);
+    }
+  });
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || req.socket.remoteAddress || "local";
+}
+
+function getRateLimitBucket(pathname) {
+  if (/^\/api\/auth\/email\//.test(pathname)) return "auth";
+  if (/^\/api\/ai\//.test(pathname)) return "ai";
+  return "default";
+}
+
+function getRateLimitConfig(bucket) {
+  if (bucket === "auth") {
+    return { windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: AUTH_RATE_LIMIT_MAX_REQUESTS };
+  }
+  if (bucket === "ai") {
+    return { windowMs: AI_RATE_LIMIT_WINDOW_MS, max: AI_RATE_LIMIT_MAX_REQUESTS };
+  }
+  return { windowMs: RATE_LIMIT_WINDOW_MS, max: RATE_LIMIT_MAX_REQUESTS };
+}
+
+function isProduction() {
+  return process.env.NODE_ENV === "production";
+}
+
+function isDevAuthCodeEnabled() {
+  return !isProduction() && process.env.ALLOW_DEV_AUTH_CODE === "true";
+}
+
+function parseAllowedOrigins(value) {
+  return new Set(
+    String(value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+  );
 }
 
 function normalizeError(error) {
@@ -1777,7 +3197,7 @@ function createAuthCode() {
 }
 
 function isValidAuthCode(authCode, code, mode) {
-  if (process.env.NODE_ENV !== "production" && code === DEV_AUTH_CODE) {
+  if (isDevAuthCodeEnabled() && code === DEV_AUTH_CODE) {
     return true;
   }
   if (!authCode) return false;
@@ -1831,6 +3251,7 @@ function normalizeDbUser(user) {
     companyId: user.company_id || user.companyId,
     email: user.email,
     name: user.name,
+    about: user.about || "Available",
     role: user.role,
     status: user.status
   };
@@ -1862,6 +3283,113 @@ async function databaseStatus() {
     status.error = normalizeError(error);
   }
   return status;
+}
+
+async function ensurePostgresRuntimeSchema() {
+  if (!hasPostgresConfig() || postgresRuntimeSchemaReady) return;
+  await postgresQuery("alter table users add column if not exists about varchar(240) not null default 'Available'");
+  await postgresQuery("alter table messages add column if not exists reply_to_json jsonb null");
+  await postgresQuery(`
+    create table if not exists e2ee_devices (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid not null references users(id) on delete cascade,
+      device_id varchar(120) not null,
+      device_label varchar(160) not null default 'Device',
+      identity_key jsonb not null,
+      signed_prekey_id varchar(120) not null,
+      signed_prekey jsonb not null,
+      signed_prekey_signature text not null,
+      registration_id varchar(120) null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      revoked_at timestamptz null,
+      unique (user_id, device_id)
+    )
+  `);
+  await postgresQuery("create index if not exists e2ee_devices_user_active_idx on e2ee_devices(user_id, revoked_at)");
+  await postgresQuery(`
+    create table if not exists e2ee_one_time_prekeys (
+      user_id uuid not null references users(id) on delete cascade,
+      device_id varchar(120) not null,
+      prekey_id varchar(120) not null,
+      prekey jsonb not null,
+      created_at timestamptz not null default now(),
+      claimed_at timestamptz null,
+      primary key (user_id, device_id, prekey_id)
+    )
+  `);
+  await postgresQuery("create index if not exists e2ee_one_time_prekeys_claim_idx on e2ee_one_time_prekeys(user_id, device_id, claimed_at)");
+  await postgresQuery(`
+    create table if not exists e2ee_conversation_key_envelopes (
+      conversation_id uuid not null references conversations(id) on delete cascade,
+      recipient_user_id uuid not null references users(id) on delete cascade,
+      recipient_device_id varchar(120) not null,
+      sender_user_id uuid not null references users(id) on delete cascade,
+      envelope_version integer not null default 1,
+      algorithm varchar(80) not null default 'x3dh-aes-gcm',
+      encrypted_key text not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      primary key (conversation_id, recipient_user_id, recipient_device_id)
+    )
+  `);
+  await postgresQuery("create index if not exists e2ee_key_envelopes_recipient_idx on e2ee_conversation_key_envelopes(recipient_user_id, recipient_device_id)");
+  await postgresQuery(`
+    create table if not exists blu_agent_events (
+      id uuid primary key default gen_random_uuid(),
+      company_id uuid null references companies(id) on delete cascade,
+      user_id uuid null references users(id) on delete set null,
+      event_type varchar(80) not null,
+      payload_json jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await postgresQuery("create index if not exists blu_agent_events_company_created_idx on blu_agent_events(company_id, created_at desc)");
+  await postgresQuery(`
+    create table if not exists blu_agent_policy (
+      company_id uuid primary key references companies(id) on delete cascade,
+      require_approval boolean not null default true,
+      allow_internal_task_creation boolean not null default true,
+      allow_external_sync boolean not null default false,
+      allow_background_jobs boolean not null default false,
+      allowed_providers jsonb not null default '["google_calendar"]'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+  await postgresQuery(`
+    create table if not exists blu_agent_actions (
+      id uuid primary key default gen_random_uuid(),
+      company_id uuid not null references companies(id) on delete cascade,
+      user_id uuid null references users(id) on delete set null,
+      conversation_id uuid null references conversations(id) on delete set null,
+      action_type varchar(80) not null,
+      title varchar(220) not null,
+      assignee varchar(255) not null default 'Me',
+      priority task_priority not null default 'normal',
+      due_at timestamptz null,
+      status varchar(40) not null default 'pending',
+      source varchar(80) not null default 'blu',
+      reason text null,
+      payload_json jsonb not null default '{}'::jsonb,
+      completed_at timestamptz null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+  await postgresQuery("create index if not exists blu_agent_actions_company_status_idx on blu_agent_actions(company_id, status, created_at desc)");
+  await postgresQuery(`
+    create table if not exists admin_audit_events (
+      id uuid primary key default gen_random_uuid(),
+      company_id uuid not null references companies(id) on delete cascade,
+      actor_user_id uuid null references users(id) on delete set null,
+      action_type varchar(120) not null,
+      target_json jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await postgresQuery("create index if not exists admin_audit_events_company_created_idx on admin_audit_events(company_id, created_at desc)");
+  postgresRuntimeSchemaReady = true;
 }
 
 async function getPostgresPool() {

@@ -1,0 +1,19 @@
+Work does not always start in a project management tool. It starts in chat, email, and meetings.
+
+Employees discuss what needs to be done, but action items are often never captured, assigned, or followed up.
+
+TodoMessenger is an AI-powered workplace messenger that turns everyday conversations into trackable work.
+
+Companies can create a workspace, invite employees, and give admins, team leads, and employees the right view.
+
+When a message becomes an action item, users can create a task directly inside the chat.
+
+Tasks can be assigned, prioritized, given due dates, and followed up with reminders.
+
+Blu, the built-in AI assistant, reads recent chat context and suggests tasks, summaries, and follow ups.
+
+The vision is to connect the tools employees already use into one action layer.
+
+TodoMessenger makes workplace conversations actionable by default.
+
+TodoMessenger makes workplace conversations actionable by default.

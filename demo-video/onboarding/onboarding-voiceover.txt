@@ -1,0 +1,17 @@
+Welcome to TodoMessenger, the workplace messenger that helps teams turn conversations into assigned, trackable tasks.
+
+Start with your work email. TodoMessenger checks your workspace and sends a verification code so the right people join the right company.
+
+Complete your profile so teammates know who you are, what role you have, and whether you are available.
+
+Admins can open the Workspace tab, confirm the company domain, invite employees, and choose whether someone joins as an admin, team lead, or employee.
+
+Employees land directly in a clean chat interface, with recent conversations, tasks, and workspace access based on their role.
+
+When a message becomes an action item, create a task directly from the chat. Assign it, add a due date, and set a reminder.
+
+Blu can review approved chat context, suggest tasks, summarize decisions, and help teams catch follow-ups before they disappear.
+
+TodoMessenger is designed to connect with the tools your company already uses, so work from chats, emails, and meetings can become one action layer.
+
+You are ready. Chat naturally, capture work automatically, and keep every follow-up moving.

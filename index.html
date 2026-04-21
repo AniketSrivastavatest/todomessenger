@@ -3,488 +3,294 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TodoMessenger</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>TodoMessenger | Blu Turns Conversation Into Execution</title>
+    <meta
+      name="description"
+      content="TodoMessenger brings work chat, tasks, workspace onboarding, and Blu AI into one coordinated product for teams."
+    >
+    <link rel="stylesheet" href="website.css">
   </head>
   <body>
-    <section class="registration-screen" id="registrationScreen" aria-label="Registration">
-      <div class="registration-phone">
-        <div class="phone-top"></div>
-        <div class="phone-body">
-          <header class="registration-header">
-            <p class="eyebrow">TodoMessenger</p>
-            <h1 id="registrationTitle">Enter your work email</h1>
-            <p id="registrationCopy">Use your company email to join TodoMessenger and open your chats and tasks.</p>
-          </header>
-
-          <ol class="registration-steps" aria-label="Registration progress">
-            <li class="active" data-step-dot="email">Email</li>
-            <li data-step-dot="verify">Verify</li>
-            <li data-step-dot="profile">Profile</li>
-          </ol>
-
-          <form class="registration-form active" id="emailForm">
-            <label for="workEmail">Work email</label>
-            <input id="workEmail" type="email" autocomplete="email" required placeholder="you@company.com">
-            <p class="helper-text">Company email replaces OTP in this prototype. Team SSO can be added later for production.</p>
-            <button class="primary-button" type="submit">Next</button>
-          </form>
-
-          <form class="registration-form" id="verifyForm">
-            <p class="verify-target" id="verifyTarget"></p>
-            <label for="emailCode">Email code</label>
-            <input id="emailCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
-            <p class="helper-text" id="demoCodeText">Check your email for the code.</p>
-            <button class="dev-code-button" id="useDevCodeButton" type="button" hidden>Use local code</button>
-            <button class="primary-button" type="submit">Verify email</button>
-            <button class="ghost-button" id="resendEmailCodeButton" type="button">Resend code</button>
-            <button class="text-button" id="editEmailButton" type="button">Edit email</button>
-          </form>
-
-          <form class="registration-form" id="profileForm">
-            <label for="profileName">Your name</label>
-            <input id="profileName" autocomplete="name" required placeholder="Your display name">
-
-            <label for="profileAbout">About</label>
-            <input id="profileAbout" placeholder="Available">
-
-            <button class="primary-button" type="submit">Start messaging</button>
-          </form>
-        </div>
+    <header class="site-header">
+      <a class="brand" href="#top">TodoMessenger</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#product">Product</a>
+        <a href="#blu">Blu</a>
+        <a href="#workspace">Workspace</a>
+        <a href="#security">Security</a>
+        <a href="#launch">Launch</a>
+      </nav>
+      <div class="header-actions">
+        <a class="button ghost" href="./app.html">Open app</a>
+        <a class="button primary" href="#launch">Talk to us</a>
       </div>
-    </section>
+    </header>
 
-    <main class="app-shell" id="appShell">
-      <aside class="sidebar" aria-label="Conversations">
-        <header class="brand-row">
-          <div>
-            <h1>TodoMessenger</h1>
-            <label class="role-switch" for="roleViewSelect">
-              View as
-              <select id="roleViewSelect">
-                <option value="Admin">Admin</option>
-                <option value="Employee">Employee</option>
-              </select>
-            </label>
+    <main id="top">
+      <section class="hero">
+        <img
+          class="hero-image"
+          src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1800&q=80"
+          alt="Team collaborating around a table"
+        >
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <p class="eyebrow">Chat, tasks, AI, and onboarding in one flow</p>
+          <h1>Blu helps your team turn conversation into execution.</h1>
+          <p class="hero-copy">
+            TodoMessenger is a workspace communication product where Blu watches for follow-ups, organizes next steps,
+            and helps teams move from discussion to action without losing context.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="./app.html">Try the product</a>
+            <a class="button dark" href="#blu">Meet Blu</a>
           </div>
-          <button class="icon-button" id="newChatButton" type="button" aria-label="Start a new chat">+</button>
-        </header>
+          <div class="hero-live-card">
+            <p class="eyebrow">Blu live view</p>
+            <strong id="heroRotatorTitle">Reading the room</strong>
+            <p id="heroRotatorCopy">
+              Blu scans shared context, spots action items, and helps the team confirm what matters next.
+            </p>
+          </div>
+          <ul class="hero-points" aria-label="Highlights">
+            <li>Blu organizes conversations into visible next steps</li>
+            <li>Tasks, assignments, reminders, and follow-ups stay linked to the discussion</li>
+            <li>Admins invite employees into a shared workspace with role-aware controls</li>
+            <li>One product for communication, coordination, and onboarding</li>
+          </ul>
+        </div>
+      </section>
 
-        <nav class="app-tabs" aria-label="Main sections">
-          <button class="tab-button active" id="chatsTabButton" type="button">Chats</button>
-          <button class="tab-button" id="tasksTabButton" type="button">Tasks</button>
-          <button class="tab-button" id="workspaceTabButton" type="button">Workspace</button>
-        </nav>
+      <section class="band intro-band" id="product">
+        <div class="section-head">
+          <p class="eyebrow">Product</p>
+          <h2>Built for teams that work in fast-moving conversations.</h2>
+          <p>
+            Most teams already have the raw material for execution inside chats, emails, calls, and handoffs. The
+            problem is not lack of information. The problem is that ownership, follow-ups, and timing get lost.
+            TodoMessenger gives Blu a clear place to organize that work.
+          </p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-tile">
+            <h3>Recent chats first</h3>
+            <p>Land in live conversations immediately so the product feels natural to adopt.</p>
+          </article>
+          <article class="feature-tile">
+            <h3>Tasks from context</h3>
+            <p>Blu and the team can turn messages into tasks with assignees, due dates, and reminders.</p>
+          </article>
+          <article class="feature-tile">
+            <h3>Shared accountability</h3>
+            <p>Each task remains connected to the conversation that created it, which reduces ambiguity later.</p>
+          </article>
+          <article class="feature-tile">
+            <h3>Admin-ready workspace</h3>
+            <p>Invite employees, control access, and shape how Blu behaves inside the organization.</p>
+          </article>
+        </div>
+      </section>
 
-        <section class="tab-view active" id="chatsTabView" aria-label="Chats tab">
-          <label class="search-box" for="chatSearch">
-            <span>Search</span>
-            <input id="chatSearch" type="search" placeholder="Search or start a new chat">
-          </label>
-
-          <nav class="conversation-list" id="conversationList" aria-label="Conversation list"></nav>
-        </section>
-
-        <section class="tab-view tasks-tab-view" id="tasksTabView" aria-label="Tasks tab">
-          <header class="task-header">
-            <div>
-              <p class="eyebrow">To-Do</p>
-              <h2>Tasks</h2>
+      <section class="split-band" id="blu">
+        <div class="split-copy">
+          <p class="eyebrow">Blu</p>
+          <h2>More than an AI feature. A visible teammate in the workflow.</h2>
+          <p>
+            Blu is the product's operating layer for coordination. It reads shared context when asked, proposes action,
+            organizes follow-ups, and helps people confirm what should become tracked work.
+          </p>
+          <div class="blu-capability-tabs" id="bluCapabilityTabs" role="tablist" aria-label="Blu capabilities">
+            <button class="capability-tab active" type="button" data-panel="organize" aria-selected="true">Organize</button>
+            <button class="capability-tab" type="button" data-panel="assign" aria-selected="false">Assign</button>
+            <button class="capability-tab" type="button" data-panel="followup" aria-selected="false">Follow through</button>
+          </div>
+          <div class="blu-panel active" id="blu-panel-organize">
+            <strong>Blu organizes noisy discussion into structured action.</strong>
+            <p>
+              It can summarize threads, identify decisions, extract follow-ups, and present tasks in a format that is
+              easier for the team to confirm.
+            </p>
+          </div>
+          <div class="blu-panel" id="blu-panel-assign" hidden>
+            <strong>Blu can suggest ownership without losing human control.</strong>
+            <p>
+              Assignees, due dates, and reminders can be proposed from context, then confirmed by the team before
+              becoming active work.
+            </p>
+          </div>
+          <div class="blu-panel" id="blu-panel-followup" hidden>
+            <strong>Blu keeps next steps from going stale.</strong>
+            <p>
+              Reminders, nudges, action history, and future integrations give Blu a path from conversation support to
+              reliable execution support.
+            </p>
+          </div>
+        </div>
+        <div class="split-visual blu-visual">
+          <div class="blu-console">
+            <p class="eyebrow">Blu activity</p>
+            <div class="blu-signal">
+              <span class="signal-dot"></span>
+              <span id="bluStatusText">Reviewing launch planning messages</span>
             </div>
-            <select id="taskFilter" aria-label="Filter tasks">
-              <option value="open">Open</option>
-              <option value="today">Due today</option>
-              <option value="all">All</option>
-              <option value="done">Done</option>
-            </select>
-          </header>
-
-          <section class="quick-stats" aria-label="Task summary">
-            <div>
-              <strong id="openTaskCount">0</strong>
-              <span>open tasks</span>
+            <div class="blu-feed" id="bluFeed" aria-live="polite">
+              <article class="blu-feed-item active">
+                <strong>Summary ready</strong>
+                <p>Blu grouped the conversation into decisions, owners, and urgent follow-ups.</p>
+              </article>
+              <article class="blu-feed-item">
+                <strong>Task suggestion prepared</strong>
+                <p>Homepage copy update can be assigned with a Thursday draft deadline.</p>
+              </article>
+              <article class="blu-feed-item">
+                <strong>Reminder path available</strong>
+                <p>Pending work can be nudged before handoff delays become a problem.</p>
+              </article>
             </div>
-            <div>
-              <strong id="dueTodayCount">0</strong>
-              <span>due today</span>
-            </div>
-            <div>
-              <strong id="reminderCount">0</strong>
-              <span>reminders</span>
-            </div>
-          </section>
-
-          <section class="notification-panel">
-            <div>
-              <strong>Task reminders</strong>
-              <span id="notificationStatus">Notifications are off.</span>
-            </div>
-            <button class="ghost-button" id="notificationButton" type="button">Enable notifications</button>
-          </section>
-
-          <form class="task-form" id="taskForm">
-            <label for="taskTitle">Task</label>
-            <input id="taskTitle" required placeholder="Add a task for this chat">
-
-            <label for="taskAssignee">Assign to</label>
-            <input id="taskAssignee" list="employeeOptions" placeholder="Me, Alex, Design team">
-
-            <div class="form-grid">
-              <label for="taskDue">
-                Due
-                <input id="taskDue" type="date">
-              </label>
-              <label for="taskPriority">
-                Priority
-                <select id="taskPriority">
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="low">Low</option>
-                </select>
-              </label>
-            </div>
-            <label for="taskReminderAt">Reminder</label>
-            <input id="taskReminderAt" type="datetime-local">
-
-            <button class="primary-button" type="submit">Add task</button>
-          </form>
-
-          <section class="ai-task-box" aria-label="AI task suggestions">
-            <button class="primary-button" id="suggestTasksButton" type="button">Suggest tasks from chat</button>
-            <p class="helper-text">AI reads recent messages from this chat only when you tap this button.</p>
-            <div class="suggestion-list" id="taskSuggestionList"></div>
-          </section>
-
-          <div class="task-list" id="taskList"></div>
-        </section>
-
-        <section class="tab-view workspace-tab-view" id="workspaceTabView" aria-label="Workspace tab">
-          <header class="task-header">
-            <div>
-              <p class="eyebrow">Company</p>
-              <h2 id="workspaceName">Workspace</h2>
-            </div>
-            <span class="workspace-badge" id="workspaceRole">Admin</span>
-          </header>
-
-          <section class="workspace-card">
-            <form class="workspace-form" id="workspaceForm">
-              <label for="workspaceCompanyName">Company name</label>
-              <input id="workspaceCompanyName" required placeholder="Acme Corp">
-
-              <label for="workspaceDomain">Company email domain</label>
-              <input id="workspaceDomain" placeholder="acme.com">
-
-              <button class="primary-button" type="submit">Save workspace</button>
-            </form>
-          </section>
-
-          <section class="workspace-card">
-            <header class="workspace-card-header">
-              <div>
-                <strong>Employee invite</strong>
-                <span>Add a work email and send a company invite.</span>
-              </div>
-              <button class="ghost-button" id="regenerateInviteButton" type="button">Create invite</button>
-            </header>
-            <label for="workspaceInviteEmail">Employee work email</label>
-            <input id="workspaceInviteEmail" type="email" placeholder="employee@company.com">
-            <label for="workspaceInviteRole">Employee role</label>
-            <select id="workspaceInviteRole">
-              <option value="employee">Employee</option>
-              <option value="team_lead">Team lead</option>
-              <option value="admin">Admin</option>
-            </select>
-            <label for="workspaceInviteLink">Invite link</label>
-            <input id="workspaceInviteLink" readonly>
-            <div class="workspace-actions">
-              <button class="primary-button" id="shareWorkspaceInviteButton" type="button">Share invite</button>
-              <button class="ghost-button" id="copyWorkspaceInviteButton" type="button">Copy link</button>
-            </div>
-            <p class="helper-text" id="workspaceInviteStatus">Invite code ready.</p>
-          </section>
-
-          <section class="workspace-card">
-            <form class="workspace-form" id="employeeJoinForm">
-              <header class="workspace-card-header">
-                <div>
-                  <strong>Join workspace</strong>
-                  <span>Demo employee onboarding flow.</span>
-                </div>
-              </header>
-
-              <label for="employeeJoinName">Employee name</label>
-              <input id="employeeJoinName" required placeholder="Aarav Sharma">
-
-              <label for="employeeJoinEmail">Work email</label>
-              <input id="employeeJoinEmail" type="email" placeholder="aarav@company.com">
-
-              <label for="employeeJoinCode">Invite code</label>
-              <input id="employeeJoinCode" required placeholder="TM-123456">
-
-              <button class="primary-button" type="submit">Join and add employee</button>
-            </form>
-          </section>
-
-          <section class="workspace-card">
-            <header class="workspace-card-header">
-              <div>
-                <strong>Employees</strong>
-                <span id="employeeCount">0 people</span>
-              </div>
-            </header>
-            <div class="employee-list" id="employeeList"></div>
-          </section>
-
-          <section class="workspace-card">
-            <header class="workspace-card-header">
-              <div>
-                <strong>Company software</strong>
-                <span>Choose tools employees can import from.</span>
-              </div>
-            </header>
-            <div class="software-list" id="softwareList"></div>
-          </section>
-        </section>
-      </aside>
-
-      <section class="chat-panel" aria-label="Active chat">
-        <header class="chat-header">
-          <button class="back-button" id="backToChatsButton" type="button" aria-label="Back to chats">‹</button>
-          <div class="chat-person">
-            <img id="activeAvatar" src="" alt="">
-            <div>
-              <h2 id="activeName"></h2>
-              <p id="activeStatus"></p>
+            <div class="metric-row">
+              <article class="metric-card">
+                <span>Conversation clarity</span>
+                <strong id="metricClarity">82%</strong>
+              </article>
+              <article class="metric-card">
+                <span>Open follow-ups found</span>
+                <strong id="metricFollowups">06</strong>
+              </article>
             </div>
           </div>
-          <div class="chat-actions">
-            <button class="chat-icon-button" id="voiceCallButton" type="button" aria-label="Voice call">☎</button>
-            <button class="chat-icon-button" id="videoCallButton" type="button" aria-label="Video call">▣</button>
-            <div class="more-menu">
-              <button class="chat-icon-button" id="moreButton" type="button" aria-label="More options">⋮</button>
-              <div class="more-menu-panel" id="moreMenuPanel" hidden>
-                <button id="showPinnedTasks" type="button">Tasks</button>
-                <button id="importWorkAppButton" type="button">Import from apps</button>
-                <button id="inviteButton" type="button">Invite contact</button>
-                <button id="mcpButton" type="button">Connected apps</button>
-              </div>
-            </div>
-          </div>
-        </header>
+        </div>
+      </section>
 
-        <div class="message-stream" id="messageStream" aria-live="polite"></div>
+      <section class="band" id="workspace">
+        <div class="section-head">
+          <p class="eyebrow">Workspace</p>
+          <h2>One product for admins, employees, and team coordination.</h2>
+          <p>
+            TodoMessenger is designed to fit into onboarding and daily work. Admins bring people into the company
+            workspace. Employees focus on conversation and execution. Blu supports both sides with structure.
+          </p>
+        </div>
+        <div class="workspace-showcase">
+          <article class="workspace-card-live">
+            <p class="eyebrow">Admin view</p>
+            <strong>Invite people, shape access, and guide rollout</strong>
+            <ul class="bullet-list">
+              <li>Create workspace invites and role-based access</li>
+              <li>Control how Blu behaves across the company</li>
+              <li>Prepare integrations and audit-friendly actions</li>
+            </ul>
+          </article>
+          <article class="workspace-card-live">
+            <p class="eyebrow">Employee view</p>
+            <strong>Stay close to tasks without leaving conversation</strong>
+            <ul class="bullet-list">
+              <li>See recent chats and active task work in one place</li>
+              <li>Capture follow-ups from team discussion immediately</li>
+              <li>Use Blu to organize messy handoffs faster</li>
+            </ul>
+          </article>
+          <article class="workspace-card-live">
+            <p class="eyebrow">Rollout view</p>
+            <strong>Useful during onboarding, not only after it</strong>
+            <ul class="bullet-list">
+              <li>New joiners get a workspace, identity, and coordination layer together</li>
+              <li>Managers can assign work even if people are not active yet</li>
+              <li>Blu helps new employees understand what needs attention first</li>
+            </ul>
+          </article>
+        </div>
+      </section>
 
-        <form class="composer" id="messageForm">
-          <button class="task-compose-button" type="button" id="quickTaskButton">Task</button>
-          <button class="attach-button" type="button" id="attachButton" aria-label="Attach files">&#128206;</button>
-          <input class="sr-only" id="attachmentInput" type="file" multiple aria-label="Attach documents, images, and files">
-          <label class="sr-only" for="messageInput">Message</label>
-          <input id="messageInput" autocomplete="off" placeholder="Message, /todo, or @blu ask anything">
-          <button class="send-button" type="submit">Send</button>
-        </form>
+      <section class="image-band">
+        <img
+          src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1800&q=80"
+          alt="Laptop and phone used for collaborative work"
+        >
+        <div class="image-band-copy">
+          <p class="eyebrow">Product direction</p>
+          <h2>Blu becomes more valuable as the workspace grows.</h2>
+          <p>
+            The more communication a team handles inside TodoMessenger, the better Blu can support summaries,
+            coordination, reminders, and future integrations across the tools the company already uses.
+          </p>
+        </div>
+      </section>
+
+      <section class="band" id="security">
+        <div class="section-head">
+          <p class="eyebrow">Security</p>
+          <h2>Enterprise direction with real operational control.</h2>
+          <p>
+            The foundation already supports backend APIs, database-backed product state, audit-minded behavior, and a
+            path toward stronger device trust, approvals, and secure action flows for Blu.
+          </p>
+        </div>
+        <div class="security-grid">
+          <article class="security-item">
+            <h3>Blu with oversight</h3>
+            <p>Admins can shape what Blu is allowed to do and where approval is still required.</p>
+          </article>
+          <article class="security-item">
+            <h3>Backend-first architecture</h3>
+            <p>Authentication, tasks, conversations, audit logs, and policy controls move toward production structure.</p>
+          </article>
+          <article class="security-item">
+            <h3>Action visibility</h3>
+            <p>Agent behavior becomes easier to trust when suggestions, approvals, and outcomes are visible.</p>
+          </article>
+          <article class="security-item">
+            <h3>Room to scale</h3>
+            <p>Realtime messaging, notifications, hosted deployment, and PostgreSQL make the product path concrete.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="band muted-band">
+        <div class="section-head">
+          <p class="eyebrow">Use cases</p>
+          <h2>Where Blu shines first.</h2>
+        </div>
+        <div class="team-grid">
+          <article class="team-use">
+            <h3>Operations</h3>
+            <p>Blu can pull action out of standups, launch threads, and support escalations.</p>
+          </article>
+          <article class="team-use">
+            <h3>Sales handoffs</h3>
+            <p>Blu can keep pricing updates, legal dependencies, and next steps visible during active deals.</p>
+          </article>
+          <article class="team-use">
+            <h3>New employee onboarding</h3>
+            <p>Blu can help a new joiner understand open items, team context, and where to begin.</p>
+          </article>
+          <article class="team-use">
+            <h3>Cross-functional work</h3>
+            <p>Blu helps reduce the drag that comes from fragmented ownership across chat and task tools.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="launch-band" id="launch">
+        <div class="launch-copy">
+          <p class="eyebrow">Launch TodoMessenger</p>
+          <h2>Show Blu, run pilots, and learn from real team behavior.</h2>
+          <p>
+            TodoMessenger already has the shape of a strong product story: workspace onboarding, coordinated chat,
+            task creation, role-based views, and Blu as the layer that turns raw conversation into structured action.
+          </p>
+        </div>
+        <div class="launch-actions">
+          <a class="button primary" href="./app.html">Open product demo</a>
+          <a class="button ghost light" href="mailto:?subject=TodoMessenger%20Demo&body=I%20would%20like%20to%20see%20TodoMessenger%20and%20Blu%20in%20action.">Request intro</a>
+        </div>
       </section>
     </main>
 
-    <dialog id="newChatDialog">
-      <form method="dialog" class="dialog-card" id="newChatForm">
-        <header>
-          <h2>New chat</h2>
-          <button class="icon-button" value="cancel" aria-label="Close">x</button>
-        </header>
-        <label for="newChatName">Name</label>
-        <input id="newChatName" required placeholder="Alex, Design team, Family">
-        <label for="newChatStatus">Status</label>
-        <input id="newChatStatus" placeholder="online, planning launch, away">
-        <menu>
-          <button class="ghost-button" value="cancel" type="button" id="cancelNewChat">Cancel</button>
-          <button class="primary-button" value="default" type="submit">Create chat</button>
-        </menu>
-      </form>
-    </dialog>
+    <footer class="site-footer">
+      <span>TodoMessenger</span>
+      <span>Blu keeps work moving.</span>
+    </footer>
 
-    <dialog id="quickTaskDialog">
-      <form method="dialog" class="dialog-card" id="quickTaskForm">
-        <header>
-          <h2>Add task from chat</h2>
-          <button class="icon-button" id="closeQuickTaskDialog" type="button" aria-label="Close">x</button>
-        </header>
-        <label for="quickTaskTitle">Task</label>
-        <input id="quickTaskTitle" required placeholder="Follow up on this message">
-        <label for="quickTaskAssignee">Assign to</label>
-        <input id="quickTaskAssignee" list="employeeOptions" placeholder="Me, Alex, Design team">
-        <div class="form-grid">
-          <label for="quickTaskDue">
-            Due
-            <input id="quickTaskDue" type="date">
-          </label>
-          <label for="quickTaskPriority">
-            Priority
-            <select id="quickTaskPriority">
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="low">Low</option>
-            </select>
-          </label>
-        </div>
-        <label for="quickTaskReminderAt">Reminder</label>
-        <input id="quickTaskReminderAt" type="datetime-local">
-        <p class="helper-text" id="quickTaskSource">Task will be linked to the active chat.</p>
-        <menu>
-          <button class="ghost-button" value="cancel" type="button" id="cancelQuickTask">Cancel</button>
-          <button class="primary-button" value="default" type="submit">Add task</button>
-        </menu>
-      </form>
-    </dialog>
-
-    <dialog id="reminderDialog">
-      <section class="dialog-card reminder-popup">
-        <div class="popup-hero" aria-hidden="true">&#128276;</div>
-        <header>
-          <div>
-            <p class="eyebrow">Reminder</p>
-            <h2 id="reminderTitle">Task reminder</h2>
-          </div>
-        </header>
-        <p class="helper-text" id="reminderMeta">A task needs your attention.</p>
-        <menu>
-          <button class="ghost-button" id="dismissReminderButton" type="button">Dismiss</button>
-          <button class="primary-button" id="openReminderChatButton" type="button">Open chat</button>
-        </menu>
-      </section>
-    </dialog>
-
-    <dialog id="assignmentFallbackDialog">
-      <section class="dialog-card">
-        <header>
-          <div>
-            <p class="eyebrow">Assignee unavailable</p>
-            <h2 id="assignmentFallbackTitle">Send task message</h2>
-          </div>
-          <button class="icon-button" id="closeAssignmentFallbackDialog" type="button" aria-label="Close">x</button>
-        </header>
-        <p class="helper-text" id="assignmentFallbackMeta">This person is not active on TodoMessenger yet.</p>
-        <textarea id="assignmentFallbackMessage" readonly rows="5"></textarea>
-        <div class="share-grid">
-          <button class="primary-button" id="shareAssignmentFallbackButton" type="button">Share message</button>
-          <button class="ghost-button" id="copyAssignmentFallbackButton" type="button">Copy message</button>
-          <a class="share-button email" id="emailAssignmentFallbackLink">Email</a>
-          <a class="share-button whatsapp" id="whatsappAssignmentFallbackLink" target="_blank" rel="noreferrer">WhatsApp</a>
-        </div>
-        <p class="helper-text" id="assignmentFallbackStatus">Message ready.</p>
-      </section>
-    </dialog>
-
-    <dialog id="shareImportDialog">
-      <section class="dialog-card wide-dialog">
-        <header>
-          <div>
-            <p class="eyebrow">Work app import</p>
-            <h2>Review shared content</h2>
-          </div>
-          <button class="icon-button" id="closeShareImportDialog" type="button" aria-label="Close">x</button>
-        </header>
-        <p class="helper-text">Paste or share messages, emails, meeting transcripts, or exported chats from company tools.</p>
-        <div class="software-chip-row" id="importSourceChips"></div>
-        <textarea id="shareImportText" rows="8" placeholder="Paste Teams chat, Gmail email, Zoom transcript, Google Meet notes, or shared app text here."></textarea>
-        <menu>
-          <button class="ghost-button" id="saveShareToChatButton" type="button">Save to chat</button>
-          <button class="primary-button" id="shareToTaskButton" type="button">Add as task</button>
-        </menu>
-      </section>
-    </dialog>
-
-    <dialog id="inviteDialog">
-      <section class="dialog-card">
-        <header>
-          <h2>Invite people</h2>
-          <button class="icon-button" id="closeInviteDialog" type="button" aria-label="Close">x</button>
-        </header>
-        <p class="helper-text">Share your TodoMessenger link so friends can join you on phone or web.</p>
-        <label for="inviteLink">Your invite link</label>
-        <input id="inviteLink" readonly>
-        <div class="share-grid">
-          <button class="primary-button" id="nativeShareButton" type="button">Share on phone</button>
-          <button class="ghost-button" id="copyInviteButton" type="button">Copy link</button>
-          <a class="share-button whatsapp" id="whatsappShareLink" target="_blank" rel="noreferrer">WhatsApp</a>
-          <a class="share-button instagram" id="instagramShareLink" target="_blank" rel="noreferrer">Instagram</a>
-          <a class="share-button sms" id="smsShareLink">SMS</a>
-          <a class="share-button email" id="emailShareLink">Email</a>
-        </div>
-        <p class="helper-text" id="shareStatus">Instagram web does not accept pre-filled link text, so copy the link before opening it.</p>
-      </section>
-    </dialog>
-
-    <dialog id="contactSyncDialog">
-      <section class="dialog-card contact-popup">
-        <div class="popup-hero" aria-hidden="true">👥</div>
-        <header>
-          <div>
-            <p class="eyebrow">Find friends</p>
-            <h2>Sync your contacts</h2>
-          </div>
-        </header>
-        <p class="helper-text">TodoMessenger can help you find people you already know. This demo will not upload contacts; it only shows the permission step.</p>
-        <menu>
-          <button class="ghost-button" id="skipContactSyncButton" type="button">Not now</button>
-          <button class="primary-button" id="syncContactsButton" type="button">Sync contacts</button>
-        </menu>
-      </section>
-    </dialog>
-
-    <dialog id="inviteContactsDialog">
-      <section class="dialog-card contact-popup">
-        <div class="popup-hero" aria-hidden="true">✉</div>
-        <header>
-          <div>
-            <p class="eyebrow">Grow your network</p>
-            <h2>Invite your contacts</h2>
-          </div>
-        </header>
-        <p class="helper-text">Send your TodoMessenger invite link to friends, teammates, or family.</p>
-        <menu>
-          <button class="ghost-button" id="skipInviteContactsButton" type="button">Later</button>
-          <button class="primary-button" id="inviteContactsButton" type="button">Invite contacts</button>
-        </menu>
-      </section>
-    </dialog>
-
-    <dialog id="mcpDialog">
-      <section class="dialog-card wide-dialog">
-        <header>
-          <div>
-            <p class="eyebrow">MCP Connections</p>
-            <h2>Connect phone apps</h2>
-          </div>
-          <button class="icon-button" id="closeMcpDialog" type="button" aria-label="Close">x</button>
-        </header>
-        <p class="helper-text">This prototype includes an MCP-style connection registry. A real mobile build would expose these tools through a secure local or cloud MCP server.</p>
-
-        <div class="mcp-layout">
-          <section>
-            <h3>Available apps</h3>
-            <div class="connected-apps" id="connectedApps"></div>
-          </section>
-
-          <form class="mcp-form" id="customMcpForm">
-            <h3>Custom connector</h3>
-            <label for="mcpAppName">App name</label>
-            <input id="mcpAppName" required placeholder="Calendar, Notes, CRM">
-            <label for="mcpEndpoint">MCP endpoint</label>
-            <input id="mcpEndpoint" required placeholder="todomessenger://mcp/calendar or https://...">
-            <button class="primary-button" type="submit">Add connector</button>
-          </form>
-        </div>
-
-        <label for="mcpManifest">MCP manifest preview</label>
-        <textarea id="mcpManifest" readonly rows="10"></textarea>
-      </section>
-    </dialog>
-
-    <datalist id="employeeOptions"></datalist>
-    <div class="task-toast" id="taskToast" role="status" aria-live="polite" hidden></div>
-
-    <script src="app-config.js"></script>
-    <script src="app.js"></script>
+    <script src="website.js"></script>
   </body>
 </html>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TodoMessenger | Blu Turns Conversation Into Execution</title>
+    <meta
+      name="description"
+      content="TodoMessenger brings work chat, tasks, workspace onboarding, and Blu AI into one coordinated product for teams."
+    >
+    <link rel="stylesheet" href="website.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top">TodoMessenger</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#product">Product</a>
+        <a href="#blu">Blu</a>
+        <a href="#workspace">Workspace</a>
+        <a href="#security">Security</a>
+        <a href="#launch">Launch</a>
+      </nav>
+      <div class="header-actions">
+        <a class="button ghost" href="./app.html">Open app</a>
+        <a class="button primary" href="#launch">Talk to us</a>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <img
+          class="hero-image"
+          src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1800&q=80"
+          alt="Team collaborating around a table"
+        >
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <p class="eyebrow">Chat, tasks, AI, and onboarding in one flow</p>
+          <h1>Blu helps your team turn conversation into execution.</h1>
+          <p class="hero-copy">
+            TodoMessenger is a workspace communication product where Blu watches for follow-ups, organizes next steps,
+            and helps teams move from discussion to action without losing context.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="./app.html">Try the product</a>
+            <a class="button dark" href="#blu">Meet Blu</a>
+          </div>
+          <div class="hero-live-card">
+            <p class="eyebrow">Blu live view</p>
+            <strong id="heroRotatorTitle">Reading the room</strong>
+            <p id="heroRotatorCopy">
+              Blu scans shared context, spots action items, and helps the team confirm what matters next.
+            </p>
+          </div>
+          <ul class="hero-points" aria-label="Highlights">
+            <li>Blu organizes conversations into visible next steps</li>
+            <li>Tasks, assignments, reminders, and follow-ups stay linked to the discussion</li>
+            <li>Admins invite employees into a shared workspace with role-aware controls</li>
+            <li>One product for communication, coordination, and onboarding</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="band intro-band" id="product">
+        <div class="section-head">
+          <p class="eyebrow">Product</p>
+          <h2>Built for teams that work in fast-moving conversations.</h2>
+          <p>
+            Most teams already have the raw material for execution inside chats, emails, calls, and handoffs. The
+            problem is not lack of information. The problem is that ownership, follow-ups, and timing get lost.
+            TodoMessenger gives Blu a clear place to organize that work.
+          </p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-tile">
+            <h3>Recent chats first</h3>
+            <p>Land in live conversations immediately so the product feels natural to adopt.</p>
+          </article>
+          <article class="feature-tile">
+            <h3>Tasks from context</h3>
+            <p>Blu and the team can turn messages into tasks with assignees, due dates, and reminders.</p>
+          </article>
+          <article class="feature-tile">
+            <h3>Shared accountability</h3>
+            <p>Each task remains connected to the conversation that created it, which reduces ambiguity later.</p>
+          </article>
+          <article class="feature-tile">
+            <h3>Admin-ready workspace</h3>
+            <p>Invite employees, control access, and shape how Blu behaves inside the organization.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="split-band" id="blu">
+        <div class="split-copy">
+          <p class="eyebrow">Blu</p>
+          <h2>More than an AI feature. A visible teammate in the workflow.</h2>
+          <p>
+            Blu is the product's operating layer for coordination. It reads shared context when asked, proposes action,
+            organizes follow-ups, and helps people confirm what should become tracked work.
+          </p>
+          <div class="blu-capability-tabs" id="bluCapabilityTabs" role="tablist" aria-label="Blu capabilities">
+            <button class="capability-tab active" type="button" data-panel="organize" aria-selected="true">Organize</button>
+            <button class="capability-tab" type="button" data-panel="assign" aria-selected="false">Assign</button>
+            <button class="capability-tab" type="button" data-panel="followup" aria-selected="false">Follow through</button>
+          </div>
+          <div class="blu-panel active" id="blu-panel-organize">
+            <strong>Blu organizes noisy discussion into structured action.</strong>
+            <p>
+              It can summarize threads, identify decisions, extract follow-ups, and present tasks in a format that is
+              easier for the team to confirm.
+            </p>
+          </div>
+          <div class="blu-panel" id="blu-panel-assign" hidden>
+            <strong>Blu can suggest ownership without losing human control.</strong>
+            <p>
+              Assignees, due dates, and reminders can be proposed from context, then confirmed by the team before
+              becoming active work.
+            </p>
+          </div>
+          <div class="blu-panel" id="blu-panel-followup" hidden>
+            <strong>Blu keeps next steps from going stale.</strong>
+            <p>
+              Reminders, nudges, action history, and future integrations give Blu a path from conversation support to
+              reliable execution support.
+            </p>
+          </div>
+        </div>
+        <div class="split-visual blu-visual">
+          <div class="blu-console">
+            <p class="eyebrow">Blu activity</p>
+            <div class="blu-signal">
+              <span class="signal-dot"></span>
+              <span id="bluStatusText">Reviewing launch planning messages</span>
+            </div>
+            <div class="blu-feed" id="bluFeed" aria-live="polite">
+              <article class="blu-feed-item active">
+                <strong>Summary ready</strong>
+                <p>Blu grouped the conversation into decisions, owners, and urgent follow-ups.</p>
+              </article>
+              <article class="blu-feed-item">
+                <strong>Task suggestion prepared</strong>
+                <p>Homepage copy update can be assigned with a Thursday draft deadline.</p>
+              </article>
+              <article class="blu-feed-item">
+                <strong>Reminder path available</strong>
+                <p>Pending work can be nudged before handoff delays become a problem.</p>
+              </article>
+            </div>
+            <div class="metric-row">
+              <article class="metric-card">
+                <span>Conversation clarity</span>
+                <strong id="metricClarity">82%</strong>
+              </article>
+              <article class="metric-card">
+                <span>Open follow-ups found</span>
+                <strong id="metricFollowups">06</strong>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="workspace">
+        <div class="section-head">
+          <p class="eyebrow">Workspace</p>
+          <h2>One product for admins, employees, and team coordination.</h2>
+          <p>
+            TodoMessenger is designed to fit into onboarding and daily work. Admins bring people into the company
+            workspace. Employees focus on conversation and execution. Blu supports both sides with structure.
+          </p>
+        </div>
+        <div class="workspace-showcase">
+          <article class="workspace-card-live">
+            <p class="eyebrow">Admin view</p>
+            <strong>Invite people, shape access, and guide rollout</strong>
+            <ul class="bullet-list">
+              <li>Create workspace invites and role-based access</li>
+              <li>Control how Blu behaves across the company</li>
+              <li>Prepare integrations and audit-friendly actions</li>
+            </ul>
+          </article>
+          <article class="workspace-card-live">
+            <p class="eyebrow">Employee view</p>
+            <strong>Stay close to tasks without leaving conversation</strong>
+            <ul class="bullet-list">
+              <li>See recent chats and active task work in one place</li>
+              <li>Capture follow-ups from team discussion immediately</li>
+              <li>Use Blu to organize messy handoffs faster</li>
+            </ul>
+          </article>
+          <article class="workspace-card-live">
+            <p class="eyebrow">Rollout view</p>
+            <strong>Useful during onboarding, not only after it</strong>
+            <ul class="bullet-list">
+              <li>New joiners get a workspace, identity, and coordination layer together</li>
+              <li>Managers can assign work even if people are not active yet</li>
+              <li>Blu helps new employees understand what needs attention first</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="image-band">
+        <img
+          src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1800&q=80"
+          alt="Laptop and phone used for collaborative work"
+        >
+        <div class="image-band-copy">
+          <p class="eyebrow">Product direction</p>
+          <h2>Blu becomes more valuable as the workspace grows.</h2>
+          <p>
+            The more communication a team handles inside TodoMessenger, the better Blu can support summaries,
+            coordination, reminders, and future integrations across the tools the company already uses.
+          </p>
+        </div>
+      </section>
+
+      <section class="band" id="security">
+        <div class="section-head">
+          <p class="eyebrow">Security</p>
+          <h2>Enterprise direction with real operational control.</h2>
+          <p>
+            The foundation already supports backend APIs, database-backed product state, audit-minded behavior, and a
+            path toward stronger device trust, approvals, and secure action flows for Blu.
+          </p>
+        </div>
+        <div class="security-grid">
+          <article class="security-item">
+            <h3>Blu with oversight</h3>
+            <p>Admins can shape what Blu is allowed to do and where approval is still required.</p>
+          </article>
+          <article class="security-item">
+            <h3>Backend-first architecture</h3>
+            <p>Authentication, tasks, conversations, audit logs, and policy controls move toward production structure.</p>
+          </article>
+          <article class="security-item">
+            <h3>Action visibility</h3>
+            <p>Agent behavior becomes easier to trust when suggestions, approvals, and outcomes are visible.</p>
+          </article>
+          <article class="security-item">
+            <h3>Room to scale</h3>
+            <p>Realtime messaging, notifications, hosted deployment, and PostgreSQL make the product path concrete.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="band muted-band">
+        <div class="section-head">
+          <p class="eyebrow">Use cases</p>
+          <h2>Where Blu shines first.</h2>
+        </div>
+        <div class="team-grid">
+          <article class="team-use">
+            <h3>Operations</h3>
+            <p>Blu can pull action out of standups, launch threads, and support escalations.</p>
+          </article>
+          <article class="team-use">
+            <h3>Sales handoffs</h3>
+            <p>Blu can keep pricing updates, legal dependencies, and next steps visible during active deals.</p>
+          </article>
+          <article class="team-use">
+            <h3>New employee onboarding</h3>
+            <p>Blu can help a new joiner understand open items, team context, and where to begin.</p>
+          </article>
+          <article class="team-use">
+            <h3>Cross-functional work</h3>
+            <p>Blu helps reduce the drag that comes from fragmented ownership across chat and task tools.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="launch-band" id="launch">
+        <div class="launch-copy">
+          <p class="eyebrow">Launch TodoMessenger</p>
+          <h2>Show Blu, run pilots, and learn from real team behavior.</h2>
+          <p>
+            TodoMessenger already has the shape of a strong product story: workspace onboarding, coordinated chat,
+            task creation, role-based views, and Blu as the layer that turns raw conversation into structured action.
+          </p>
+        </div>
+        <div class="launch-actions">
+          <a class="button primary" href="./app.html">Open product demo</a>
+          <a class="button ghost light" href="mailto:?subject=TodoMessenger%20Demo&body=I%20would%20like%20to%20see%20TodoMessenger%20and%20Blu%20in%20action.">Request intro</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>TodoMessenger</span>
+      <span>Blu keeps work moving.</span>
+    </footer>
+
+    <script src="website.js"></script>
+  </body>
+</html>
