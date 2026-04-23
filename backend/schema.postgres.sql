@@ -6,9 +6,12 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type user_role as enum ('admin', 'team_lead', 'employee');
+  create type user_role as enum ('superadmin', 'admin', 'manager', 'team_lead', 'employee');
 exception when duplicate_object then null;
 end $$;
+
+alter type user_role add value if not exists 'superadmin';
+alter type user_role add value if not exists 'manager';
 
 do $$ begin
   create type user_status as enum ('invited', 'active', 'away', 'disabled');
@@ -44,6 +47,26 @@ create table if not exists companies (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists workspace_sso_configs (
+  company_id uuid primary key references companies(id) on delete cascade,
+  require_sso boolean not null default false,
+  allow_email_fallback boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid null
+);
+
+create table if not exists workspace_sso_providers (
+  company_id uuid not null references companies(id) on delete cascade,
+  provider varchar(80) not null,
+  enabled boolean not null default false,
+  domain_hint varchar(160) null,
+  tenant_hint varchar(160) null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (company_id, provider)
+);
+
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references companies(id),
@@ -57,8 +80,22 @@ create table if not exists users (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists user_identities (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  company_id uuid not null references companies(id) on delete cascade,
+  provider varchar(80) not null,
+  provider_user_id varchar(255) not null,
+  email varchar(255) null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (company_id, provider, provider_user_id),
+  unique (user_id, provider)
+);
+
 create index if not exists users_company_role_idx on users(company_id, role);
 create index if not exists users_company_status_idx on users(company_id, status);
+create index if not exists user_identities_company_provider_idx on user_identities(company_id, provider);
 
 create table if not exists invites (
   id uuid primary key default gen_random_uuid(),

@@ -4436,6 +4436,7 @@ async function databaseStatus() {
 
 async function ensurePostgresRuntimeSchema() {
   if (!hasPostgresConfig() || postgresRuntimeSchemaReady) return;
+  await ensurePostgresEnumValues();
   await postgresQuery(`
     create table if not exists workspace_sso_configs (
       company_id uuid primary key references companies(id) on delete cascade,
@@ -4576,6 +4577,11 @@ async function ensurePostgresRuntimeSchema() {
   `);
   await postgresQuery("create index if not exists admin_audit_events_company_created_idx on admin_audit_events(company_id, created_at desc)");
   postgresRuntimeSchemaReady = true;
+}
+
+async function ensurePostgresEnumValues() {
+  await postgresQuery("alter type user_role add value if not exists 'superadmin'");
+  await postgresQuery("alter type user_role add value if not exists 'manager'");
 }
 
 async function getPostgresPool() {

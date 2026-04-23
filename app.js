@@ -757,11 +757,14 @@ els.workEmail.addEventListener("input", () => {
 els.googleSsoButton?.addEventListener("click", () => startSsoLogin("google"));
 els.microsoftSsoButton?.addEventListener("click", () => startSsoLogin("microsoft"));
 
-els.verifyForm.addEventListener("submit", (event) => {
+els.verifyForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const code = els.emailCode.value.replace(/\D/g, "");
   if (!/^\d{6}$/.test(code)) {
     els.emailCode.setCustomValidity("Enter the 6-digit email code.");
+    if (els.demoCodeText) {
+      els.demoCodeText.textContent = "Enter the 6-digit verification code from your inbox.";
+    }
     els.emailCode.reportValidity();
     return;
   }
@@ -769,7 +772,11 @@ els.verifyForm.addEventListener("submit", (event) => {
   els.emailCode.setCustomValidity("");
   els.emailCode.value = code;
   state.registration.pendingCode = code;
-  verifyEmailCode();
+  state.registration.errorMessage = "";
+  if (els.demoCodeText) {
+    els.demoCodeText.textContent = "Verifying your code...";
+  }
+  await verifyEmailCode(code);
 });
 
 els.editEmailButton.addEventListener("click", () => {
@@ -799,6 +806,12 @@ els.resendEmailCodeButton.addEventListener("click", async () => {
 });
 els.emailCode.addEventListener("input", () => {
   els.emailCode.setCustomValidity("");
+  state.registration.errorMessage = "";
+  if (els.demoCodeText) {
+    els.demoCodeText.textContent = state.registration.demoCode
+      ? t("demoCodeLabel", { code: state.registration.demoCode })
+      : t("verifyCodeInbox");
+  }
 });
 els.useDevCodeButton.addEventListener("click", () => {
   if (!state.registration.demoCode) return;
@@ -1288,15 +1301,18 @@ async function startEmailRegistration(email, options = {}) {
   }
 }
 
-async function verifyEmailCode() {
+async function verifyEmailCode(code = state.registration.pendingCode) {
+  const submitButton = els.verifyForm.querySelector("button[type='submit']");
+  const previousLabel = submitButton.textContent;
   try {
-    els.verifyForm.querySelector("button[type='submit']").disabled = true;
+    submitButton.disabled = true;
+    submitButton.textContent = "Verifying...";
     const response = await fetch(`${getBackendUrl()}/api/auth/email/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: state.registration.pendingEmail,
-        code: state.registration.pendingCode,
+        code,
         name: getNameFromEmail(state.registration.pendingEmail)
       })
     });
@@ -1326,13 +1342,19 @@ async function verifyEmailCode() {
     els.profileName.value = state.registration.user.name || "";
     els.profileName.focus();
   } catch (error) {
+    const message = `Could not verify email. ${formatApiError(error.message || error)}`;
     state.registration.step = "verify";
+    state.registration.errorMessage = message;
     saveState();
     renderRegistration();
-    els.emailCode.setCustomValidity(`Could not verify email. ${formatApiError(error.message || error)}`);
+    if (els.demoCodeText) {
+      els.demoCodeText.textContent = message;
+    }
+    els.emailCode.setCustomValidity(message);
     els.emailCode.reportValidity();
   } finally {
-    els.verifyForm.querySelector("button[type='submit']").disabled = false;
+    submitButton.disabled = false;
+    submitButton.textContent = previousLabel;
   }
 }
 
@@ -1581,7 +1603,7 @@ function renderRegistration() {
   els.verifyTarget.textContent = t("verifyCodeFor", { email: state.registration.pendingEmail || t("verifyCodeFallbackEmail") });
   els.demoCodeText.textContent = state.registration.demoCode
     ? t("demoCodeLabel", { code: state.registration.demoCode })
-    : t("verifyCodeInbox");
+    : (step === "verify" && state.registration.errorMessage ? state.registration.errorMessage : t("verifyCodeInbox"));
   els.useDevCodeButton.hidden = !state.registration.demoCode;
   els.useDevCodeButton.textContent = state.registration.demoCode
     ? t("useLocalCodeWithValue", { code: state.registration.demoCode })
