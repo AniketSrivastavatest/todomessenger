@@ -759,7 +759,7 @@ els.microsoftSsoButton?.addEventListener("click", () => startSsoLogin("microsoft
 
 els.verifyForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const code = els.emailCode.value.trim();
+  const code = els.emailCode.value.replace(/\D/g, "");
   if (!/^\d{6}$/.test(code)) {
     els.emailCode.setCustomValidity("Enter the 6-digit email code.");
     els.emailCode.reportValidity();
@@ -767,6 +767,7 @@ els.verifyForm.addEventListener("submit", (event) => {
   }
 
   els.emailCode.setCustomValidity("");
+  els.emailCode.value = code;
   state.registration.pendingCode = code;
   verifyEmailCode();
 });

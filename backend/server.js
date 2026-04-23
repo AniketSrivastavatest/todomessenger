@@ -541,7 +541,7 @@ async function startEmailAuth(body) {
 
 async function completeEmailAuth(body) {
   const email = normalizeEmail(body.email);
-  const code = String(body.code || "").trim();
+  const code = normalizeAuthCode(body.code);
   const name = String(body.name || "").trim();
   if (!email || !code) {
     throw new Error("Email and verification code are required.");
@@ -1099,11 +1099,12 @@ async function startEmailAuthPostgres(email) {
 
 async function completeEmailAuthPostgres({ email, code, name }) {
   const codes = await postgresRows(
-    "select id, code_hash, expires_at from auth_codes where email = $1 order by created_at desc limit 1",
+    "select id, code_hash, expires_at from auth_codes where email = $1 and expires_at > now() order by created_at desc limit 10",
     [email]
   );
-  const authCode = codes[0];
+  const authCode = codes.find((candidate) => isValidAuthCode(candidate, code, "postgres"));
   if (!isValidAuthCode(authCode, code, "postgres")) {
+    console.warn(`Email verification failed for ${maskEmail(email)}: invalid or expired code.`);
     throw new Error("Invalid or expired email code.");
   }
 
@@ -4094,6 +4095,10 @@ function normalizeError(error) {
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+}
+
+function normalizeAuthCode(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 6);
 }
 
 function extractEmailAddress(value) {
