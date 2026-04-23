@@ -26,7 +26,19 @@
           <form class="registration-form active" id="emailForm">
             <label for="workEmail">Work email</label>
             <input id="workEmail" type="email" autocomplete="email" required placeholder="you@company.com">
-            <p class="helper-text">Company email replaces OTP in this prototype. Team SSO can be added later for production.</p>
+            <p class="helper-text" id="emailLoginHelper">Use your company email to continue. If your workspace has Team SSO, TodoMessenger will show your company sign-in options here.</p>
+            <div class="backend-status-chip" id="backendStatusChip" aria-live="polite">
+              <strong>Backend</strong>
+              <span id="backendStatusText">Checking connection…</span>
+            </div>
+            <div class="sso-login-box" id="ssoLoginBox" hidden>
+              <strong>Company sign-in</strong>
+              <p class="helper-text" id="ssoLoginStatus">Enter your work email to check available providers.</p>
+              <div class="sso-login-actions">
+                <button class="ghost-button sso-login-button" id="googleSsoButton" type="button" hidden>Continue with Google</button>
+                <button class="ghost-button sso-login-button" id="microsoftSsoButton" type="button" hidden>Continue with Microsoft</button>
+              </div>
+            </div>
             <button class="primary-button" type="submit">Next</button>
           </form>
 
@@ -34,7 +46,7 @@
             <p class="verify-target" id="verifyTarget"></p>
             <label for="emailCode">Email code</label>
             <input id="emailCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
-            <p class="helper-text" id="demoCodeText">Check your email for the code.</p>
+            <p class="helper-text" id="demoCodeText">We sent a verification code to your inbox.</p>
             <button class="dev-code-button" id="useDevCodeButton" type="button" hidden>Use local code</button>
             <button class="primary-button" type="submit">Verify email</button>
             <button class="ghost-button" id="resendEmailCodeButton" type="button">Resend code</button>
@@ -62,14 +74,23 @@
             <label class="role-switch" for="roleViewSelect">
               View as
               <select id="roleViewSelect">
+                <option value="Superadmin">Superadmin</option>
                 <option value="Admin">Admin</option>
+                <option value="Manager">Manager</option>
+                <option value="Team Lead">Team Lead</option>
                 <option value="Employee">Employee</option>
               </select>
             </label>
           </div>
           <div class="brand-actions">
             <button class="icon-button" id="openSettingsButton" type="button" aria-label="Open settings">&#9881;</button>
-            <button class="icon-button" id="newChatButton" type="button" aria-label="Start a new chat">+</button>
+            <div class="compose-menu">
+              <button class="icon-button" id="newChatButton" type="button" aria-label="Start a new chat or group">&#9998;</button>
+              <div class="compose-menu-panel" id="composeMenuPanel" hidden>
+                <button id="startDirectChatButton" type="button">New chat</button>
+                <button id="startGroupChatButton" type="button">New group</button>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -158,6 +179,29 @@
             <div class="suggestion-list" id="taskSuggestionList"></div>
           </section>
 
+          <section class="blu-main-panel" aria-label="Blu actions for this workflow">
+            <header class="workspace-card-header">
+              <div>
+                <strong>Blu Actions</strong>
+                <span id="mainBluActionCount">0 pending</span>
+              </div>
+            </header>
+            <div class="blu-main-actions-row">
+              <button class="ghost-button" id="readTodayTasksButton" type="button">Read aloud</button>
+              <button class="ghost-button" id="mainApproveAllBluActionsButton" type="button">Approve pending</button>
+              <button class="ghost-button" id="mainRefreshBluActionsButton" type="button">Refresh</button>
+            </div>
+            <div class="blu-main-integration-row">
+              <div>
+                <strong>Google Calendar</strong>
+                <span id="mainBluCalendarStatus">Not connected yet.</span>
+              </div>
+              <button class="primary-button" id="connectGoogleCalendarButton" type="button">Connect calendar</button>
+            </div>
+            <p class="helper-text blu-voice-status" id="bluVoiceStatus">Ready to read today's pending tasks.</p>
+            <div class="blu-action-list blu-main-action-list" id="mainBluActionList"></div>
+          </section>
+
           <div class="task-list" id="taskList"></div>
         </section>
 
@@ -184,6 +228,7 @@
                 <button id="importWorkAppButton" type="button">Import from apps</button>
                 <button id="inviteButton" type="button">Invite contact</button>
                 <button id="openSettingsMenuButton" type="button">Settings</button>
+                <button id="menuLogoutButton" class="more-menu-danger" type="button">Log out</button>
               </div>
             </div>
           </div>
@@ -228,16 +273,17 @@
     <dialog id="newChatDialog">
       <form method="dialog" class="dialog-card" id="newChatForm">
         <header>
-          <h2>New chat</h2>
+          <h2 id="newChatDialogTitle">New chat</h2>
           <button class="icon-button" value="cancel" aria-label="Close">x</button>
         </header>
+        <input id="newChatType" type="hidden" value="direct">
         <label for="newChatName">Name</label>
         <input id="newChatName" required placeholder="Alex, Design team, Family">
         <label for="newChatStatus">Status</label>
         <input id="newChatStatus" placeholder="online, planning launch, away">
         <menu>
           <button class="ghost-button" value="cancel" type="button" id="cancelNewChat">Cancel</button>
-          <button class="primary-button" value="default" type="submit">Create chat</button>
+          <button class="primary-button" value="default" type="submit" id="submitNewChatButton">Create chat</button>
         </menu>
       </form>
     </dialog>
@@ -407,6 +453,20 @@
             <div>
               <strong>Workspace admin</strong>
               <span>Company, employee, and Blu controls.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item superadmin-settings-section" id="settingsSuperadminEntry" type="button" data-settings-target="superadmin" hidden>
+            <div>
+              <strong>Superadmin</strong>
+              <span>SSO providers, system connections, and restricted controls.</span>
+            </div>
+            <span class="settings-nav-arrow">&rsaquo;</span>
+          </button>
+          <button class="settings-nav-item settings-logout-item" id="settingsLogoutButton" type="button">
+            <div>
+              <strong>Log out</strong>
+              <span>Sign out of this device and return to the email login screen.</span>
             </div>
             <span class="settings-nav-arrow">&rsaquo;</span>
           </button>
@@ -615,6 +675,7 @@
             <label for="workspaceInviteRole">Employee role</label>
             <select id="workspaceInviteRole">
               <option value="employee">Employee</option>
+              <option value="manager">Manager</option>
               <option value="team_lead">Team lead</option>
               <option value="admin">Admin</option>
             </select>
@@ -669,6 +730,49 @@
             <div class="software-list" id="softwareList"></div>
           </section>
 
+          <section class="workspace-card superadmin-settings-section" id="workspaceSsoSection" hidden>
+            <header class="workspace-card-header">
+              <div>
+                <strong>Team SSO</strong>
+                <span>Connect Google Workspace or Microsoft sign-in for employees.</span>
+              </div>
+            </header>
+            <form class="workspace-form" id="workspaceSsoForm">
+              <div class="settings-toggle-list">
+                <label class="toggle-row">
+                  <input id="workspaceRequireSso" type="checkbox">
+                  <span>Require Team SSO for this workspace</span>
+                </label>
+                <label class="toggle-row">
+                  <input id="workspaceAllowEmailFallback" type="checkbox" checked>
+                  <span>Allow email-code fallback while rolling out SSO</span>
+                </label>
+              </div>
+              <div class="sso-provider-grid">
+                <label class="settings-detail-card sso-provider-card" for="workspaceGoogleSsoEnabled">
+                  <span class="settings-detail-label">Google Workspace</span>
+                  <div class="toggle-inline">
+                    <input id="workspaceGoogleSsoEnabled" type="checkbox">
+                    <span>Enable Google sign-in</span>
+                  </div>
+                  <input id="workspaceGoogleDomainHint" placeholder="acme.com">
+                  <span class="helper-text" id="workspaceGoogleSsoMeta">Waiting for Google client ID and secret.</span>
+                </label>
+                <label class="settings-detail-card sso-provider-card" for="workspaceMicrosoftSsoEnabled">
+                  <span class="settings-detail-label">Microsoft</span>
+                  <div class="toggle-inline">
+                    <input id="workspaceMicrosoftSsoEnabled" type="checkbox">
+                    <span>Enable Microsoft sign-in</span>
+                  </div>
+                  <input id="workspaceMicrosoftTenantHint" placeholder="common or your tenant ID">
+                  <span class="helper-text" id="workspaceMicrosoftSsoMeta">Waiting for Microsoft client ID and secret.</span>
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Save Team SSO</button>
+              <p class="helper-text" id="workspaceSsoStatus">Team SSO is optional until you enable a provider.</p>
+            </form>
+          </section>
+
           <section class="workspace-card" id="bluControlsSection">
             <header class="workspace-card-header">
               <div>
@@ -704,12 +808,51 @@
                 <strong>Blu Actions</strong>
                 <span id="bluActionCount">0 pending</span>
               </div>
-              <button class="ghost-button" id="refreshBluActionsButton" type="button">Refresh</button>
+              <div class="workspace-card-actions">
+                <button class="ghost-button" id="approveAllBluActionsButton" type="button">Approve all pending</button>
+                <button class="ghost-button" id="refreshBluActionsButton" type="button">Refresh</button>
+              </div>
             </header>
             <div class="blu-action-list" id="bluActionList"></div>
           </section>
+        </section>
 
-          <section class="workspace-card" id="adminAuditSection">
+        <section class="settings-panel superadmin-settings-section" data-settings-panel="superadmin" hidden>
+          <section class="settings-subsection-title">
+            <p class="eyebrow">Superadmin</p>
+            <h3>Identity and system controls</h3>
+          </section>
+
+          <section class="workspace-card" id="superadminSystemSection">
+            <header class="workspace-card-header">
+              <div>
+                <strong>System connections</strong>
+                <span>Read-only environment wiring and deployment routing.</span>
+              </div>
+            </header>
+            <div class="settings-list">
+              <div class="settings-detail-card">
+                <span class="settings-detail-label">Frontend app</span>
+                <strong id="superadminFrontendUrl">Not available</strong>
+              </div>
+              <div class="settings-detail-card">
+                <span class="settings-detail-label">Backend API</span>
+                <strong id="superadminBackendUrl">Not available</strong>
+              </div>
+              <div class="settings-detail-card">
+                <span class="settings-detail-label">Google SSO status</span>
+                <strong id="superadminGoogleStatus">Checking</strong>
+                <span class="helper-text" id="superadminGoogleHint">Provider metadata appears here.</span>
+              </div>
+              <div class="settings-detail-card">
+                <span class="settings-detail-label">Microsoft SSO status</span>
+                <strong id="superadminMicrosoftStatus">Checking</strong>
+                <span class="helper-text" id="superadminMicrosoftHint">Provider metadata appears here.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="workspace-card superadmin-settings-section" id="adminAuditSection" hidden>
             <header class="workspace-card-header">
               <div>
                 <strong>Admin audit</strong>
@@ -742,6 +885,23 @@
           <a class="share-button whatsapp" id="whatsappAssignmentFallbackLink" target="_blank" rel="noreferrer">WhatsApp</a>
         </div>
         <p class="helper-text" id="assignmentFallbackStatus">Message ready.</p>
+      </section>
+    </dialog>
+
+    <dialog id="roleChangeConfirmDialog">
+      <section class="dialog-card">
+        <header>
+          <div>
+            <p class="eyebrow">Confirm change</p>
+            <h2 id="roleChangeConfirmTitle">Demote admin?</h2>
+          </div>
+          <button class="icon-button" id="closeRoleChangeConfirmDialog" type="button" aria-label="Close">x</button>
+        </header>
+        <p class="helper-text" id="roleChangeConfirmBody">This member will lose admin access if you continue.</p>
+        <menu>
+          <button class="ghost-button" id="cancelRoleChangeConfirmButton" type="button">Cancel</button>
+          <button class="primary-button" id="confirmRoleChangeConfirmButton" type="button">Confirm change</button>
+        </menu>
       </section>
     </dialog>
 

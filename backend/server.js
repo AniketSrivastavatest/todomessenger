@@ -65,6 +65,34 @@ const PROVIDERS = {
   }
 };
 
+const SSO_PROVIDERS = {
+  google: {
+    id: "google",
+    name: "Google Workspace",
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    userInfoUrl: "https://openidconnect.googleapis.com/v1/userinfo",
+    clientId: process.env.GOOGLE_SSO_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_SSO_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_SSO_REDIRECT_URI || `${PUBLIC_BACKEND_URL}/api/auth/sso/google/callback`,
+    scopes: "openid email profile",
+    tokenBodyStyle: "form",
+    hostedDomainParam: "hd"
+  },
+  microsoft: {
+    id: "microsoft",
+    name: "Microsoft",
+    authUrl: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID || "common"}/oauth2/v2.0/authorize`,
+    tokenUrl: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID || "common"}/oauth2/v2.0/token`,
+    userInfoUrl: "https://graph.microsoft.com/oidc/userinfo",
+    clientId: process.env.MICROSOFT_SSO_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID,
+    clientSecret: process.env.MICROSOFT_SSO_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET,
+    redirectUri: process.env.MICROSOFT_SSO_REDIRECT_URI || `${PUBLIC_BACKEND_URL}/api/auth/sso/microsoft/callback`,
+    scopes: "openid email profile offline_access User.Read",
+    tokenBodyStyle: "form"
+  }
+};
+
 ensureStore();
 ensurePostgresRuntimeSchema().catch((error) => console.warn(`PostgreSQL schema check failed: ${normalizeError(error)}`));
 processDueReminders().catch((error) => console.warn(`Reminder worker failed: ${normalizeError(error)}`));
@@ -101,7 +129,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/health") {
-      sendJson(res, 200, { ok: true, database: await databaseStatus(), providers: providerStatus() });
+      sendJson(res, 200, {
+        ok: true,
+        database: await databaseStatus(),
+        providers: providerStatus(),
+        sso: ssoProviderStatus(),
+        email: emailDeliveryStatus()
+      });
       return;
     }
 
@@ -126,6 +160,23 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/me") {
       const auth = await requireAuth(req);
       sendJson(res, 200, { ok: true, user: auth.user, workspace: auth.workspace });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/auth/sso/options") {
+      sendJson(res, 200, await getSsoOptions(url.searchParams));
+      return;
+    }
+
+    const ssoStart = url.pathname.match(/^\/api\/auth\/sso\/([^/]+)\/start$/);
+    if (req.method === "GET" && ssoStart) {
+      await startSsoLogin(ssoStart[1], url, res);
+      return;
+    }
+
+    const ssoCallback = url.pathname.match(/^\/api\/auth\/sso\/([^/]+)\/callback$/);
+    if (req.method === "GET" && ssoCallback) {
+      await finishSsoLogin(ssoCallback[1], url, res);
       return;
     }
 
@@ -176,6 +227,27 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/workspaces/members") {
       const auth = await requireAuth(req);
       sendJson(res, 200, await listWorkspaceMembers(auth));
+      return;
+    }
+
+    const memberRoleMatch = url.pathname.match(/^\/api\/workspaces\/members\/([^/]+)\/role$/);
+    if (req.method === "PATCH" && memberRoleMatch) {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await updateWorkspaceMemberRole(auth, memberRoleMatch[1], body));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/workspaces/sso") {
+      const auth = await requireAuth(req);
+      sendJson(res, 200, await getWorkspaceSsoSettings(auth.companyId));
+      return;
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/workspaces/sso") {
+      const auth = await requireAuth(req);
+      const body = await readJson(req);
+      sendJson(res, 200, await updateWorkspaceSsoSettings(auth, body));
       return;
     }
 
@@ -426,6 +498,15 @@ async function startEmailAuth(body) {
   if (!email) {
     throw new Error("A valid work email is required.");
   }
+  const ssoOptions = await getSsoOptions(new URLSearchParams({ email }));
+  if (ssoOptions.requireSso && ssoOptions.allowEmailFallback === false) {
+    throw new Error("This workspace requires Team SSO. Use your company sign-in provider instead of an email code.");
+  }
+
+  const useDemoCode = isDevAuthCodeEnabled();
+  if (!useDemoCode) {
+    assertEmailDeliveryConfigured();
+  }
 
   if (hasPostgresConfig()) {
     return startEmailAuthPostgres(email);
@@ -441,14 +522,20 @@ async function startEmailAuth(body) {
   };
   writeStore(store);
 
+  if (!useDemoCode) {
+    await sendVerificationCodeEmail({ email, code });
+  }
+
   return {
     ok: true,
     email,
-    delivery: isDevAuthCodeEnabled() ? "demo" : "email",
-    demoCode: isDevAuthCodeEnabled() ? code : "",
-    message: isDevAuthCodeEnabled()
-      ? "Dev mode: use the returned code. In production this is emailed."
-      : "Verification started. In production this is emailed."
+    delivery: useDemoCode ? "demo" : "email",
+    demoCode: useDemoCode ? code : "",
+    message: useDemoCode
+      ? (isStagingEnvironment()
+        ? "Staging mode: use the returned code. Production must use real email delivery."
+        : "Development mode: use the returned code. Production must use real email delivery.")
+      : "Verification code sent by email."
   };
 }
 
@@ -580,6 +667,202 @@ async function updateCurrentWorkspace(auth, body) {
   return { ok: true, workspace };
 }
 
+async function getWorkspaceSsoSettings(companyId = "", workspace = null) {
+  const baseDomain = workspace?.domain || "";
+  const fallback = {
+    ok: true,
+    sso: {
+      requireSso: false,
+      allowEmailFallback: true,
+      providers: Object.keys(SSO_PROVIDERS).map((providerId) => ({
+        provider: providerId,
+        name: SSO_PROVIDERS[providerId].name,
+        enabled: false,
+        configured: isSsoProviderConfigured(providerId),
+        domainHint: baseDomain,
+        tenantHint: providerId === "microsoft" ? (process.env.MICROSOFT_TENANT_ID || "common") : ""
+      }))
+    }
+  };
+
+  if (!companyId) {
+    return fallback;
+  }
+
+  if (!hasPostgresConfig()) {
+    const store = readStore();
+    store.workspaceSsoConfigs ||= {};
+    const saved = store.workspaceSsoConfigs[companyId] || {};
+    return {
+      ok: true,
+      sso: {
+        requireSso: saved.requireSso === true,
+        allowEmailFallback: saved.allowEmailFallback !== false,
+        providers: Object.keys(SSO_PROVIDERS).map((providerId) => {
+          const provider = saved.providers?.[providerId] || {};
+          return {
+            provider: providerId,
+            name: SSO_PROVIDERS[providerId].name,
+            enabled: provider.enabled === true,
+            configured: isSsoProviderConfigured(providerId),
+            domainHint: provider.domainHint || baseDomain,
+            tenantHint: provider.tenantHint || (providerId === "microsoft" ? (process.env.MICROSOFT_TENANT_ID || "common") : "")
+          };
+        })
+      }
+    };
+  }
+
+  await ensurePostgresRuntimeSchema();
+  const [configRow] = await postgresRows(
+    `select require_sso, allow_email_fallback
+     from workspace_sso_configs
+     where company_id = $1
+     limit 1`,
+    [companyId]
+  );
+  const providerRows = await postgresRows(
+    `select provider, enabled, domain_hint, tenant_hint
+     from workspace_sso_providers
+     where company_id = $1
+     order by provider asc`,
+    [companyId]
+  );
+  const byProvider = new Map(providerRows.map((row) => [row.provider, row]));
+  return {
+    ok: true,
+    sso: {
+      requireSso: configRow?.require_sso === true,
+      allowEmailFallback: configRow ? configRow.allow_email_fallback !== false : true,
+      providers: Object.keys(SSO_PROVIDERS).map((providerId) => {
+        const row = byProvider.get(providerId);
+        return {
+          provider: providerId,
+          name: SSO_PROVIDERS[providerId].name,
+          enabled: row?.enabled === true,
+          configured: isSsoProviderConfigured(providerId),
+          domainHint: row?.domain_hint || baseDomain,
+          tenantHint: row?.tenant_hint || (providerId === "microsoft" ? (process.env.MICROSOFT_TENANT_ID || "common") : "")
+        };
+      })
+    }
+  };
+}
+
+async function updateWorkspaceSsoSettings(auth, body) {
+  if (!["admin", "team_lead"].includes(auth.user.role)) {
+    throw new Error("Only admins and team leads can manage Team SSO.");
+  }
+  const requireSso = body.requireSso === true;
+  const allowEmailFallback = body.allowEmailFallback !== false;
+  const providers = Array.isArray(body.providers) ? body.providers : [];
+  const activeConfiguredProviders = providers.filter((item) => item.enabled === true && isSsoProviderConfigured(item.provider));
+  if (requireSso && !activeConfiguredProviders.length) {
+    throw new Error("Enable and configure at least one Team SSO provider before requiring SSO for the workspace.");
+  }
+
+  if (!hasPostgresConfig()) {
+    const store = readStore();
+    store.workspaceSsoConfigs ||= {};
+    store.workspaceSsoConfigs[auth.companyId] = {
+      requireSso,
+      allowEmailFallback,
+      providers: Object.fromEntries(Object.keys(SSO_PROVIDERS).map((providerId) => {
+        const incoming = providers.find((item) => item.provider === providerId) || {};
+        return [providerId, {
+          enabled: incoming.enabled === true,
+          domainHint: normalizeDomain(incoming.domainHint || auth.workspace.domain || ""),
+          tenantHint: String(incoming.tenantHint || "").trim()
+        }];
+      }))
+    };
+    writeStore(store);
+    return getWorkspaceSsoSettings(auth.companyId, auth.workspace);
+  }
+
+  await ensurePostgresRuntimeSchema();
+  await postgresQuery(
+    `insert into workspace_sso_configs (company_id, require_sso, allow_email_fallback, updated_at, updated_by)
+     values ($1, $2, $3, now(), $4)
+     on conflict (company_id)
+     do update set
+       require_sso = excluded.require_sso,
+       allow_email_fallback = excluded.allow_email_fallback,
+       updated_at = now(),
+       updated_by = excluded.updated_by`,
+    [auth.companyId, requireSso, allowEmailFallback, auth.user.id]
+  );
+  for (const providerId of Object.keys(SSO_PROVIDERS)) {
+    const incoming = providers.find((item) => item.provider === providerId) || {};
+    await postgresQuery(
+      `insert into workspace_sso_providers (company_id, provider, enabled, domain_hint, tenant_hint, created_at, updated_at)
+       values ($1, $2, $3, $4, $5, now(), now())
+       on conflict (company_id, provider)
+       do update set
+         enabled = excluded.enabled,
+         domain_hint = excluded.domain_hint,
+         tenant_hint = excluded.tenant_hint,
+         updated_at = now()`,
+      [
+        auth.companyId,
+        providerId,
+        incoming.enabled === true,
+        normalizeDomain(incoming.domainHint || auth.workspace.domain || "") || null,
+        String(incoming.tenantHint || "").trim() || null
+      ]
+    );
+  }
+  const result = await getWorkspaceSsoSettings(auth.companyId, auth.workspace);
+  await recordAdminAudit(auth, "workspace.sso.updated", result.sso);
+  return result;
+}
+
+async function getSsoOptions(searchParams) {
+  const email = normalizeEmail(searchParams.get("email") || "");
+  const domain = email.split("@")[1] || normalizeDomain(searchParams.get("domain") || "");
+  if (!domain) {
+    return {
+      ok: true,
+      email: "",
+      requireSso: false,
+      allowEmailFallback: true,
+      providers: []
+    };
+  }
+
+  if (!hasPostgresConfig()) {
+    const store = readStore();
+    const workspace = Object.values(store.workspaces || {}).find((item) => item.domain === domain);
+    if (!workspace) {
+      return { ok: true, email, requireSso: false, allowEmailFallback: true, providers: [] };
+    }
+    const config = await getWorkspaceSsoSettings(workspace.id, workspace);
+    return {
+      ok: true,
+      email,
+      requireSso: config.sso.requireSso,
+      allowEmailFallback: config.sso.allowEmailFallback,
+      providers: config.sso.providers.filter((provider) => provider.enabled && provider.configured)
+    };
+  }
+
+  await ensurePostgresRuntimeSchema();
+  const workspace = (await postgresRows("select id, name, domain from companies where domain = $1 limit 1", [domain]))[0];
+  if (!workspace) {
+    return { ok: true, email, requireSso: false, allowEmailFallback: true, providers: [] };
+  }
+  const config = await getWorkspaceSsoSettings(workspace.id, workspace);
+  return {
+    ok: true,
+    email,
+    companyId: workspace.id,
+    workspace: { id: workspace.id, name: workspace.name, domain: workspace.domain },
+    requireSso: config.sso.requireSso,
+    allowEmailFallback: config.sso.allowEmailFallback,
+    providers: config.sso.providers.filter((provider) => provider.enabled && provider.configured)
+  };
+}
+
 async function listWorkspaceMembers(auth) {
   const users = await postgresRows(
     `select id, company_id, email, name, role, status, created_at, last_login_at
@@ -599,6 +882,7 @@ async function listWorkspaceMembers(auth) {
   );
   return {
     ok: true,
+    sso: (await getWorkspaceSsoSettings(auth.companyId, auth.workspace)).sso,
     members: users.map((user) => ({
       id: user.id,
       companyId: user.company_id,
@@ -631,8 +915,8 @@ async function createWorkspaceInvite(auth, body) {
   if (!email || !companyId) {
     throw new Error("Invite requires employee email and companyId.");
   }
-  if (auth && !["admin", "team_lead"].includes(auth.user.role)) {
-    throw new Error("Only admins and team leads can invite employees.");
+  if (auth) {
+    assertRoleGrantAllowed(auth.user.role, role);
   }
 
   if (hasPostgresConfig()) {
@@ -680,6 +964,95 @@ async function createWorkspaceInvite(auth, body) {
   return { ok: true, invite };
 }
 
+async function updateWorkspaceMemberRole(auth, memberId, body) {
+  const targetRole = normalizeRole(body.role || "employee");
+  assertRoleGrantAllowed(auth?.user?.role, targetRole);
+
+  const member = (await postgresRows(
+    "select id, company_id, email, name, role, status, created_at, last_login_at from users where id = $1 and company_id = $2 limit 1",
+    [memberId, auth.companyId]
+  ))[0];
+  if (!member) {
+    throw new Error("Workspace member not found.");
+  }
+  if (member.id === auth.user.id && normalizeRole(auth.user.role) !== "superadmin") {
+    throw new Error("Only superadmin can change their own role.");
+  }
+  if (normalizeRole(member.role) === "superadmin" && normalizeRole(auth.user.role) !== "superadmin") {
+    throw new Error("Only superadmin can manage another superadmin.");
+  }
+  const currentRole = normalizeRole(member.role);
+  const isSuperadminDemotion = currentRole === "superadmin" && targetRole !== "superadmin";
+  if (isSuperadminDemotion) {
+    const superadminCountRows = await postgresRows(
+      "select count(*)::int as count from users where company_id = $1 and role = 'superadmin'",
+      [auth.companyId]
+    );
+    const superadminCount = Number(superadminCountRows[0]?.count || 0);
+    if (superadminCount <= 1) {
+      throw new Error("Cannot demote the last remaining superadmin.");
+    }
+    if (body.confirmSuperadminDemotion !== true) {
+      throw new Error("Superadmin demotion requires explicit confirmation.");
+    }
+  }
+  const isAdminDemotion = currentRole === "admin" && targetRole !== "admin";
+  if (isAdminDemotion) {
+    const adminCountRows = await postgresRows(
+      "select count(*)::int as count from users where company_id = $1 and role = 'admin'",
+      [auth.companyId]
+    );
+    const adminCount = Number(adminCountRows[0]?.count || 0);
+    if (adminCount <= 1 && body.confirmLastAdminDemotion !== true) {
+      throw new Error("Last admin demotion requires explicit confirmation.");
+    }
+  }
+
+  const rows = await postgresRows(
+    `update users
+     set role = $1,
+         updated_at = now()
+     where id = $2
+     returning id, company_id, email, name, role, status, created_at, last_login_at`,
+    [targetRole, member.id]
+  );
+  const updated = rows[0];
+  await recordAdminAudit(auth, "workspace.member.role.updated", {
+    memberId: updated.id,
+    email: updated.email,
+    previousRole: member.role,
+    newRole: updated.role
+  });
+  broadcastRealtime(auth.companyId, {
+    type: "workspace.member.updated",
+    member: {
+      id: updated.id,
+      companyId: updated.company_id,
+      email: updated.email,
+      name: updated.name,
+      role: updated.role,
+      status: updated.status,
+      available: updated.status !== "away" && updated.status !== "disabled",
+      joinedAt: updated.created_at,
+      lastLoginAt: updated.last_login_at
+    }
+  });
+  return {
+    ok: true,
+    member: {
+      id: updated.id,
+      companyId: updated.company_id,
+      email: updated.email,
+      name: updated.name,
+      role: updated.role,
+      status: updated.status,
+      available: updated.status !== "away" && updated.status !== "disabled",
+      joinedAt: updated.created_at,
+      lastLoginAt: updated.last_login_at
+    }
+  };
+}
+
 async function upsertInvitedUser(companyId, email, role) {
   const existing = (await postgresRows("select id, status from users where email = $1 limit 1", [email]))[0];
   if (existing) {
@@ -699,18 +1072,28 @@ async function upsertInvitedUser(companyId, email, role) {
 }
 
 async function startEmailAuthPostgres(email) {
+  const useDemoCode = isDevAuthCodeEnabled();
+  if (!useDemoCode) {
+    assertEmailDeliveryConfigured();
+  }
   const code = createAuthCode();
   await postgresQuery(
     "insert into auth_codes (id, email, code_hash, expires_at, created_at) values ($1, $2, $3, now() + interval '15 minutes', now())",
     [crypto.randomUUID(), email, hashSecret(code)]
   );
 
+  if (!useDemoCode) {
+    await sendVerificationCodeEmail({ email, code });
+  }
+
   return {
     ok: true,
     email,
-    delivery: isDevAuthCodeEnabled() ? "demo" : "email",
-    demoCode: isDevAuthCodeEnabled() ? code : undefined,
-    message: isDevAuthCodeEnabled() ? "Dev mode: use the returned code." : "Verification code sent by email."
+    delivery: useDemoCode ? "demo" : "email",
+    demoCode: useDemoCode ? code : undefined,
+    message: useDemoCode
+      ? (isStagingEnvironment() ? "Staging mode: use the returned code." : "Development mode: use the returned code.")
+      : "Verification code sent by email."
   };
 }
 
@@ -752,14 +1135,22 @@ async function completeEmailAuthPostgres({ email, code, name }) {
   if (!user) {
     const existingUsers = await postgresRows("select id from users where company_id = $1 limit 1", [company.id]);
     const userId = crypto.randomUUID();
-    const role = pendingInvite?.role || (existingUsers.length ? "employee" : "admin");
+    const role = getProvisionedRole({
+      requestedRole: pendingInvite?.role,
+      existingRole: "",
+      existingUsersCount: existingUsers.length
+    });
     await postgresQuery(
       "insert into users (id, company_id, email, name, role, status, created_at, updated_at, last_login_at) values ($1, $2, $3, $4, $5, 'active', now(), now(), now())",
       [userId, company.id, email, name || getNameFromEmail(email), role]
     );
     user = { id: userId, company_id: company.id, email, name: name || getNameFromEmail(email), role, status: "active" };
   } else {
-    const role = pendingInvite?.role || user.role;
+    const role = getProvisionedRole({
+      requestedRole: pendingInvite?.role,
+      existingRole: user.role,
+      existingUsersCount: 1
+    });
     await postgresQuery(
       "update users set company_id = $1, name = $2, role = $3, status = 'active', last_login_at = now(), updated_at = now() where id = $4",
       [company.id, name || user.name, role, user.id]
@@ -877,7 +1268,8 @@ async function getAuthContextByToken(token) {
     workspace: {
       id: row.company_id,
       name: row.company_name,
-      domain: row.company_domain
+      domain: row.company_domain,
+      sso: (await getWorkspaceSsoSettings(row.company_id, { id: row.company_id, name: row.company_name, domain: row.company_domain })).sso
     }
   };
 }
@@ -1659,6 +2051,91 @@ function pruneRealtimeTickets() {
   });
 }
 
+async function startSsoLogin(providerId, url, res) {
+  const provider = getSsoProvider(providerId);
+  requireSsoProviderConfig(provider);
+  const redirectTo = sanitizeFrontendRedirect(url.searchParams.get("redirectTo") || "");
+  const emailHint = normalizeEmail(url.searchParams.get("emailHint") || "");
+  const options = await getSsoOptions(new URLSearchParams(emailHint ? { email: emailHint } : {}));
+  const matchingProvider = options.providers.find((item) => item.provider === providerId);
+  if (!matchingProvider) {
+    sendHtml(res, 400, `<h1>Team SSO unavailable</h1><p>${escapeHtml(provider.name)} is not enabled for this workspace yet.</p>`);
+    return;
+  }
+
+  const state = crypto.randomBytes(24).toString("hex");
+  const store = readStore();
+  store.oauthStates[state] = {
+    type: "sso",
+    provider: providerId,
+    redirectTo,
+    companyId: options.companyId || "",
+    emailHint,
+    createdAt: new Date().toISOString()
+  };
+  writeStore(store);
+
+  const authUrl = new URL(provider.authUrl);
+  authUrl.searchParams.set("client_id", provider.clientId);
+  authUrl.searchParams.set("redirect_uri", provider.redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("scope", provider.scopes);
+  if (emailHint) authUrl.searchParams.set("login_hint", emailHint);
+  if (provider.hostedDomainParam && matchingProvider.domainHint) {
+    authUrl.searchParams.set(provider.hostedDomainParam, matchingProvider.domainHint);
+  }
+  if (providerId === "google" || providerId === "microsoft") {
+    authUrl.searchParams.set("prompt", "select_account");
+  }
+  redirect(res, authUrl.toString());
+}
+
+async function finishSsoLogin(providerId, url, res) {
+  const provider = getSsoProvider(providerId);
+  requireSsoProviderConfig(provider);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (!code || !state) {
+    redirect(res, buildSsoRedirectUrl(FRONTEND_ORIGIN, { error: "Missing code or state." }));
+    return;
+  }
+
+  const store = readStore();
+  const storedState = store.oauthStates[state];
+  if (!storedState || storedState.provider !== providerId || storedState.type !== "sso") {
+    redirect(res, buildSsoRedirectUrl(FRONTEND_ORIGIN, { error: "State did not match." }));
+    return;
+  }
+
+  try {
+    const token = await exchangeCode(provider, code);
+    const identity = await fetchSsoIdentity(provider, token);
+    const email = normalizeEmail(identity.email || storedState.emailHint || "");
+    if (!email) {
+      throw new Error("The identity provider did not return a work email.");
+    }
+    const auth = await signInWithSsoIdentity({
+      providerId,
+      identity,
+      email,
+      companyId: storedState.companyId
+    });
+    delete store.oauthStates[state];
+    writeStore(store);
+    redirect(res, buildSsoRedirectUrl(storedState.redirectTo || FRONTEND_ORIGIN, {
+      token: auth.token,
+      provider: providerId
+    }));
+  } catch (error) {
+    delete store.oauthStates[state];
+    writeStore(store);
+    redirect(res, buildSsoRedirectUrl(storedState.redirectTo || FRONTEND_ORIGIN, {
+      error: normalizeError(error)
+    }));
+  }
+}
+
 async function startOAuth(providerId, url, res) {
   const provider = getProvider(providerId);
   requireProviderConfig(provider);
@@ -1771,6 +2248,132 @@ async function exchangeCode(provider, code) {
   });
 }
 
+async function fetchSsoIdentity(provider, token) {
+  let profile = {};
+  if (provider.userInfoUrl && token.access_token) {
+    profile = await getJson(provider.userInfoUrl, {
+      Authorization: `Bearer ${token.access_token}`,
+      Accept: "application/json"
+    }).catch(() => ({}));
+  }
+  const idTokenClaims = parseJwtClaims(token.id_token);
+  const claims = { ...idTokenClaims, ...profile };
+  return {
+    subject: String(claims.sub || claims.oid || claims.id || "").trim(),
+    email: String(claims.email || claims.preferred_username || claims.upn || "").trim(),
+    name: String(claims.name || claims.given_name || claims.preferred_username || "").trim(),
+    picture: String(claims.picture || "").trim(),
+    hostedDomain: String(claims.hd || "").trim(),
+    tenantId: String(claims.tid || "").trim(),
+    raw: claims
+  };
+}
+
+async function signInWithSsoIdentity({ providerId, identity, email, companyId = "" }) {
+  await ensurePostgresRuntimeSchema();
+  const domain = email.split("@")[1];
+  let workspace = companyId
+    ? (await postgresRows("select id, name, domain from companies where id = $1 limit 1", [companyId]))[0]
+    : (await postgresRows("select id, name, domain from companies where domain = $1 limit 1", [domain]))[0];
+  if (!workspace) {
+    throw new Error("This company has not enabled Team SSO yet.");
+  }
+
+  const sso = await getWorkspaceSsoSettings(workspace.id, workspace);
+  const providerConfig = sso.sso.providers.find((item) => item.provider === providerId);
+  if (!providerConfig?.enabled || !providerConfig.configured) {
+    throw new Error("This Team SSO provider is not enabled for the workspace.");
+  }
+  if (providerConfig.domainHint && domain !== providerConfig.domainHint) {
+    throw new Error("This account email does not match the workspace SSO domain.");
+  }
+
+  const providerUserId = identity.subject || email;
+  let user = (await postgresRows(
+    `select u.id, u.company_id, u.email, u.name, u.about, u.role, u.status
+     from user_identities i
+     join users u on u.id = i.user_id
+     where i.company_id = $1 and i.provider = $2 and i.provider_user_id = $3
+     limit 1`,
+    [workspace.id, providerId, providerUserId]
+  ))[0];
+
+  const pendingInvite = (await postgresRows(
+    `select id, role from invites
+     where company_id = $1
+       and email = $2
+       and accepted_at is null
+       and expires_at > now()
+     order by created_at desc
+     limit 1`,
+    [workspace.id, email]
+  ))[0];
+
+  if (!user) {
+    user = (await postgresRows(
+      "select id, company_id, email, name, about, role, status from users where company_id = $1 and email = $2 limit 1",
+      [workspace.id, email]
+    ))[0];
+  }
+
+  if (!user) {
+    const existingUsers = await postgresRows("select id from users where company_id = $1 limit 1", [workspace.id]);
+    const role = getProvisionedRole({
+      requestedRole: pendingInvite?.role,
+      existingRole: "",
+      existingUsersCount: existingUsers.length
+    });
+    const userId = crypto.randomUUID();
+    await postgresQuery(
+      `insert into users (id, company_id, email, name, about, role, status, created_at, updated_at, last_login_at)
+       values ($1, $2, $3, $4, 'Available', $5, 'active', now(), now(), now())`,
+      [userId, workspace.id, email, identity.name || getNameFromEmail(email), role]
+    );
+    user = { id: userId, company_id: workspace.id, email, name: identity.name || getNameFromEmail(email), about: "Available", role, status: "active" };
+  } else {
+    const nextRole = getProvisionedRole({
+      requestedRole: pendingInvite?.role,
+      existingRole: user.role,
+      existingUsersCount: 1
+    });
+    await postgresQuery(
+      `update users
+       set name = $1,
+           role = $2,
+           status = 'active',
+           last_login_at = now(),
+           updated_at = now()
+       where id = $3`,
+      [identity.name || user.name, nextRole, user.id]
+    );
+    user.name = identity.name || user.name;
+    user.role = nextRole;
+    user.status = "active";
+  }
+
+  await postgresQuery(
+    `insert into user_identities (id, user_id, company_id, provider, provider_user_id, email, created_at, updated_at)
+     values ($1, $2, $3, $4, $5, $6, now(), now())
+     on conflict (company_id, provider, provider_user_id)
+     do update set
+       user_id = excluded.user_id,
+       email = excluded.email,
+       updated_at = now()`,
+    [crypto.randomUUID(), user.id, workspace.id, providerId, providerUserId, email]
+  );
+  if (pendingInvite) {
+    await postgresQuery("update invites set accepted_at = now() where id = $1", [pendingInvite.id]);
+  }
+
+  const session = await createPersistedSessionForUser(user.id);
+  await ensureCompanyDefaultConversation(workspace.id, user.id, workspace.name);
+  return {
+    token: session.token,
+    user: normalizeDbUser(user),
+    workspace
+  };
+}
+
 async function createAsanaTask(body) {
   const connection = await getConnection("asana", body.companyId);
   const workspace = process.env.ASANA_WORKSPACE_GID || body.workspace;
@@ -1831,14 +2434,15 @@ async function askBlu(body) {
 
   const prompt = body.prompt || "Help with this TodoMessenger conversation.";
   const context = body.context ? `Recent encrypted-chat context, decrypted on the user's device:\n${body.context}` : "";
+  const locale = normalizeLocale(body.locale || body.language || "");
   try {
     const data = await postJson(
       "https://api.openai.com/v1/responses",
       JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
         instructions:
-          "You are Blu, the AI assistant inside TodoMessenger. Answer clearly and concisely in mobile-friendly formatting. Use short section headings on their own lines and bullet points on separate lines. Do not write dense paragraphs. Do not use markdown heading symbols like ###. If the user asks for a task, suggest a short actionable task title.",
-        input: `${context}\n\nUser request:\n${prompt}`,
+          "You are Blu, the AI assistant inside TodoMessenger. You must understand and answer in any language used by the user or chat context. Prefer replying in the user's latest language. Preserve names, task titles, and important quoted text in the original language when that is clearer. Answer clearly and concisely in mobile-friendly formatting. Use short section headings on their own lines and bullet points on separate lines. Do not write dense paragraphs. Do not use markdown heading symbols like ###. If the user asks for a task, suggest a short actionable task title in the same language as the request unless the user asks otherwise.",
+        input: `Preferred locale: ${locale || "auto"}\n${context}\n\nUser request:\n${prompt}`,
         max_output_tokens: 700
       }),
       {
@@ -1892,13 +2496,14 @@ async function suggestTasks(body) {
     };
   }
 
+  const locale = normalizeLocale(body.locale || body.language || "");
   const data = await postJson(
     "https://api.openai.com/v1/responses",
     JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
       instructions:
-        "You extract actionable to-do tasks from a chat. Return only JSON with a tasks array. Each task must have title, assignee, priority, due, and reason. assignee may contain multiple people as a comma-separated string, for example \"Alex, Sarah\". priority must be low, normal, or high. due should be an ISO date string or empty string. If the assignee is unclear, use Me. Keep titles short.",
-      input: `Conversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","assignee":"Alex, Sarah","priority":"normal","due":"","reason":"..."}]}.`,
+        "You extract actionable to-do tasks from a chat in any language. Return only JSON with a tasks array. Detect tasks even when the chat uses non-English text, mixed languages, or informal shorthand. Preserve the task title and reason in the language of the original message whenever possible. Each task must have title, assignee, priority, due, and reason. assignee may contain multiple people as a comma-separated string, for example \"Alex, Sarah\". priority must be low, normal, or high. due should be an ISO date string or empty string. If the assignee is unclear, use Me. Keep titles short and actionable.",
+      input: `Preferred locale: ${locale || "auto"}\nConversation: ${body.conversationName || "Current chat"}\n\nRecent chat messages:\n${body.context || ""}\n\nReturn JSON only, shaped like {"tasks":[{"title":"...","assignee":"Alex, Sarah","priority":"normal","due":"","reason":"..."}]}.`,
       max_output_tokens: 800
     }),
     {
@@ -1914,6 +2519,8 @@ async function planBluAgentActions(auth, body) {
   const prompt = String(body.prompt || "").trim();
   const context = String(body.context || "").trim();
   const conversationName = String(body.conversationName || "Current chat").trim();
+  const conversationId = String(body.conversationId || "").trim();
+  const locale = normalizeLocale(body.locale || body.language || "");
 
   if (process.env.OPENAI_API_KEY) {
     try {
@@ -1922,8 +2529,8 @@ async function planBluAgentActions(auth, body) {
         JSON.stringify({
           model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
           instructions:
-            "You are Blu, an AI workspace agent inside TodoMessenger. Return only JSON. Propose actions the user can approve. Never claim an action is completed. Supported action types: create_task, draft_reply, schedule_reminder, sync_external. Every action needs approval. Keep task titles short. assignee may contain multiple names separated by commas. due must be ISO date or empty.",
-          input: `Conversation: ${conversationName}\nUser request: ${prompt}\n\nRecent context:\n${context}\n\nReturn JSON shaped like {"summary":"...","actions":[{"type":"create_task","title":"...","assignee":"Me","priority":"normal","due":"","reason":"...","needsApproval":true}]}.`,
+            "You are Blu, an AI workspace agent inside TodoMessenger. Understand and reason over chats in any language. Return only JSON. Propose actions the user can approve. Never claim an action is completed. Preserve titles and reasons in the source language when practical. Supported action types: create_task, draft_reply, schedule_reminder, sync_external. Every action needs approval. Keep task titles short. assignee may contain multiple names separated by commas. due must be ISO date or empty. When the user asks to put something on a calendar or schedule an event, return sync_external with provider set to google_calendar.",
+          input: `Preferred locale: ${locale || "auto"}\nConversation: ${conversationName}\nUser request: ${prompt}\n\nRecent context:\n${context}\n\nReturn JSON shaped like {"summary":"...","actions":[{"type":"create_task","title":"...","assignee":"Me","priority":"normal","due":"","reason":"...","needsApproval":true,"provider":""}]}.`,
           max_output_tokens: 900
         }),
         {
@@ -1932,19 +2539,34 @@ async function planBluAgentActions(auth, body) {
         }
       );
       const plan = normalizeAgentPlan(extractResponseText(data), { prompt, context });
-      plan.actions = await persistBluAgentActions(auth, plan.actions, { prompt, summary: plan.summary, source: "blu-plan" });
+      plan.actions = await persistBluAgentActions(auth, plan.actions, {
+        prompt,
+        summary: plan.summary,
+        source: "blu-plan",
+        conversationId
+      });
       await recordBluAgentEvent(auth, { eventType: "plan.created", prompt, summary: plan.summary, actions: plan.actions });
       return { ok: true, ...plan, responseId: data.id };
     } catch (error) {
       const plan = createFallbackAgentPlan({ prompt, context });
-      plan.actions = await persistBluAgentActions(auth, plan.actions, { prompt, summary: plan.summary, source: "blu-plan-fallback" });
+      plan.actions = await persistBluAgentActions(auth, plan.actions, {
+        prompt,
+        summary: plan.summary,
+        source: "blu-plan-fallback",
+        conversationId
+      });
       await recordBluAgentEvent(auth, { eventType: "plan.fallback", prompt, summary: plan.summary, actions: plan.actions, error: normalizeError(error) });
       return { ok: true, ...plan, mode: "local-fallback", message: normalizeError(error) };
     }
   }
 
   const plan = createFallbackAgentPlan({ prompt, context });
-  plan.actions = await persistBluAgentActions(auth, plan.actions, { prompt, summary: plan.summary, source: "blu-plan-fallback" });
+  plan.actions = await persistBluAgentActions(auth, plan.actions, {
+    prompt,
+    summary: plan.summary,
+    source: "blu-plan-fallback",
+    conversationId
+  });
   await recordBluAgentEvent(auth, { eventType: "plan.fallback", prompt, summary: plan.summary, actions: plan.actions });
   return { ok: true, ...plan, mode: "local-fallback" };
 }
@@ -2001,6 +2623,17 @@ function createFallbackAgentPlan({ prompt = "", context = "" } = {}) {
       type: "draft_reply",
       title: "Thanks. I will review this and come back with the next update.",
       reason: "Drafted from the requested reply intent.",
+      needsApproval: true
+    }));
+  }
+
+  if ((/\b(calendar|schedule|event|meeting reminder)\b/i.test(lowerPrompt) || /\b(calendar|event)\b/i.test(String(context || ""))) && actions.length) {
+    actions.push(normalizeAgentAction({
+      type: "sync_external",
+      title: actions[0].title,
+      due: actions[0].due,
+      provider: "google_calendar",
+      reason: "Blu can place this approved follow-up on Google Calendar.",
       needsApproval: true
     }));
   }
@@ -2265,17 +2898,21 @@ function normalizeAgentStatus(value) {
 }
 
 function mapBluAgentActionRow(row) {
+  const payload = row.payload_json || {};
   return {
     id: row.id,
+    conversationId: row.conversation_id || (typeof payload.conversationId === "string" ? payload.conversationId : ""),
     type: row.action_type,
     title: row.title,
     assignee: row.assignee || "Me",
     priority: row.priority || "normal",
     due: row.due_at ? new Date(row.due_at).toISOString().slice(0, 10) : "",
+    reminderAt: typeof payload.reminderAt === "string" ? payload.reminderAt : "",
+    provider: typeof payload.provider === "string" ? payload.provider : "",
     status: row.status || "pending",
     source: row.source || "blu",
     reason: row.reason || "",
-    payload: row.payload_json || {},
+    payload,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at || null
@@ -2326,7 +2963,86 @@ function extractTasksWithoutAi(context) {
     "confirm",
     "assign",
     "remind",
-    "complete"
+    "complete",
+    "envoyer",
+    "partager",
+    "preparer",
+    "préparer",
+    "creer",
+    "créer",
+    "revoir",
+    "mettre a jour",
+    "mettre à jour",
+    "appeler",
+    "planifier",
+    "suivre",
+    "terminer",
+    "verifier",
+    "vérifier",
+    "confirmer",
+    "attribuer",
+    "rappeler",
+    "completer",
+    "compléter",
+    "enviar",
+    "compartir",
+    "preparar",
+    "crear",
+    "revisar",
+    "actualizar",
+    "llamar",
+    "programar",
+    "seguir",
+    "finalizar",
+    "comprobar",
+    "confirmar",
+    "asignar",
+    "recordar",
+    "completar",
+    "senden",
+    "teilen",
+    "vorbereiten",
+    "erstellen",
+    "prufen",
+    "prüfen",
+    "aktualisieren",
+    "anrufen",
+    "planen",
+    "nachfassen",
+    "abschliessen",
+    "abschließen",
+    "bestatigen",
+    "bestätigen",
+    "zuweisen",
+    "erinnern",
+    "completar",
+    "mandare",
+    "condividere",
+    "preparare",
+    "creare",
+    "rivedere",
+    "aggiornare",
+    "chiamare",
+    "pianificare",
+    "seguire",
+    "finire",
+    "verificare",
+    "assegnare",
+    "ricordare",
+    "fazer",
+    "enviar",
+    "compartilhar",
+    "preparar",
+    "criar",
+    "revisar",
+    "atualizar",
+    "ligar",
+    "agendar",
+    "acompanhar",
+    "terminar",
+    "verificar",
+    "atribuir",
+    "lembrar"
   ];
   const taskSignals = [
     "todo",
@@ -2340,7 +3056,41 @@ function extractTasksWithoutAi(context) {
     "by tomorrow",
     "by today",
     "deadline",
-    "due"
+    "due",
+    "a faire",
+    "à faire",
+    "tache",
+    "tâche",
+    "il faut",
+    "besoin de",
+    "merci de",
+    "avant demain",
+    "aujourd'hui",
+    "echeance",
+    "échéance",
+    "pendiente",
+    "tarea",
+    "hay que",
+    "necesito",
+    "por favor",
+    "antes de mañana",
+    "hoy",
+    "fecha limite",
+    "fecha límite",
+    "aufgabe",
+    "bitte",
+    "heute",
+    "morgen",
+    "frist",
+    "promemoria",
+    "devo",
+    "per favore",
+    "oggi",
+    "domani",
+    "prazo",
+    "hoje",
+    "amanha",
+    "amanhã"
   ];
   const lines = String(context || "")
     .split(/\r?\n+/)
@@ -2351,12 +3101,13 @@ function extractTasksWithoutAi(context) {
   for (const line of lines) {
     const lower = line.toLowerCase();
     const hasSignal = taskSignals.some((signal) => lower.includes(signal)) ||
-      taskVerbs.some((verb) => lower.startsWith(`${verb} `) || lower.includes(` ${verb} `));
+      taskVerbs.some((verb) => lower.startsWith(`${verb} `) || lower.includes(` ${verb} `)) ||
+      /(?:^|[\s:])(?:@[\p{L}\p{N}._-]+\s+)?(?:please|svp|por favor|bitte)\b/iu.test(line);
     if (!hasSignal) continue;
 
     const title = line
       .replace(/^\/todo\s+/i, "")
-      .replace(/^(please|can you|could you|we need to|i need to|need to)\s+/i, "")
+      .replace(/^(please|can you|could you|we need to|i need to|need to|svp|merci de|il faut|por favor|hay que|necesito|bitte|wir mussen|wir müssen|devo|precisamos)\s+/i, "")
       .replace(/[.!?]+$/g, "")
       .slice(0, 120)
       .trim();
@@ -2365,7 +3116,7 @@ function extractTasksWithoutAi(context) {
     tasks.push({
       title,
       assignee: "Me",
-      priority: lower.includes("urgent") || lower.includes("asap") || lower.includes("deadline") ? "high" : "normal",
+      priority: /(urgent|asap|deadline|échéance|echeance|urgente|dringend|prazo)/i.test(lower) ? "high" : "normal",
       due: inferDueDate(lower),
       reason: "Detected from an action-oriented chat message"
     });
@@ -2376,29 +3127,28 @@ function extractTasksWithoutAi(context) {
 }
 
 function inferDueDate(text) {
-  const now = new Date();
-  if (text.includes("tomorrow")) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().slice(0, 10);
-  }
+  const relativeDue = parseRelativeDueDate(text);
+  if (relativeDue) return relativeDue;
   const weekdayDue = inferWeekdayDue(text);
   if (weekdayDue) return weekdayDue;
   const dayOfMonthDue = inferDayOfMonthDue(text);
   if (dayOfMonthDue) return dayOfMonthDue;
-  if (/\b(today|eod|end of day|cob|close of business)\b/i.test(text)) return now.toISOString().slice(0, 10);
   const isoMatch = text.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
-  return isoMatch ? isoMatch[1] : "";
+  if (isoMatch) return isoMatch[1];
+  return inferMonthDayDue(text);
 }
 
 function inferWeekdayDue(text) {
-  const match = String(text || "").match(/\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i);
+  const match = String(text || "").match(/\b(next|this|before|by|on|ce|cet|cette|prochain|prochaine|este|esta|el|la|pr[oó]ximo|pr[oó]xima|n[aä]chsten?|diesen|diese|diesem|questo|questa|prossim[oa]|na|no|em)?\s*(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|lunes|martes|mi[eé]rcoles|jueves|viernes|s[áa]bado|domingo|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|luned[ìi]|marted[ìi]|mercoled[ìi]|gioved[ìi]|venerd[ìi]|sabato|domenica|segunda|ter[cç]a|quarta|quinta|sexta|s[áa]bado|domingo)\b/i);
   if (!match) return "";
-  const weekdays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-  const targetDay = weekdays.findIndex((day) => match[1].toLowerCase().startsWith(day));
-  if (targetDay < 0) return "";
+  const modifier = (match[1] || "").toLowerCase();
+  const targetDay = mapWeekdayTokenToIndex(match[2]);
+  if (targetDay == null) return "";
   const due = new Date();
-  const daysUntil = (targetDay - due.getDay() + 7) % 7;
+  let daysUntil = (targetDay - due.getDay() + 7) % 7;
+  if (/\bnext|prochain|prochaine|pr[oó]ximo|pr[oó]xima|n[aä]chsten?|prossim[oa]\b/i.test(modifier)) {
+    daysUntil = daysUntil === 0 ? 7 : daysUntil + 7;
+  }
   due.setDate(due.getDate() + daysUntil);
   return due.toISOString().slice(0, 10);
 }
@@ -2417,6 +3167,84 @@ function inferDayOfMonthDue(text) {
     if (due.getDate() !== day) return "";
   }
   return due.toISOString().slice(0, 10);
+}
+
+function parseRelativeDueDate(text) {
+  const source = String(text || "");
+  const now = new Date();
+  if (/\b(today|aujourd'hui|hoy|heute|oggi|hoje|eod|end of day|cob|close of business|fin de journ[ée]e|fim do dia)\b/i.test(source)) {
+    return now.toISOString().slice(0, 10);
+  }
+  if (/\b(tomorrow|demain|ma[ñn]ana|morgen|domani|amanh[ãa])\b/i.test(source)) {
+    now.setDate(now.getDate() + 1);
+    return now.toISOString().slice(0, 10);
+  }
+  if (/\b(next week|semaine prochaine|pr[oó]xima semana|n[aä]chste woche|prossima settimana)\b/i.test(source)) {
+    now.setDate(now.getDate() + 7);
+    return now.toISOString().slice(0, 10);
+  }
+  return "";
+}
+
+function mapWeekdayTokenToIndex(token) {
+  const normalized = String(token || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const map = {
+    sun: 0, sunday: 0, dimanche: 0, domingo: 0, sonntag: 0, domenica: 0,
+    mon: 1, monday: 1, lundi: 1, lunes: 1, montag: 1, lunedi: 1, segunda: 1,
+    tue: 2, tuesday: 2, mardi: 2, martes: 2, dienstag: 2, martedi: 2, terca: 2,
+    wed: 3, wednesday: 3, mercredi: 3, miercoles: 3, mittwoch: 3, mercoledi: 3, quarta: 3,
+    thu: 4, thursday: 4, jeudi: 4, jueves: 4, donnerstag: 4, giovedi: 4, quinta: 4,
+    fri: 5, friday: 5, vendredi: 5, viernes: 5, freitag: 5, venerdi: 5, sexta: 5,
+    sat: 6, saturday: 6, samedi: 6, sabado: 6, samstag: 6, sabato: 6
+  };
+  return map[normalized];
+}
+
+function inferMonthDayDue(text) {
+  const source = String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const match = source.match(/\b(?:by|due|before|on|para|avant|antes de|entro il|ate|at[eé])?\s*(\d{1,2})\s*(?:st|nd|rd|th|er|o|a)?\s+(jan(?:uary|viero)?|feb(?:ruary|rero|braio|vrier)?|mar(?:ch|zo)?|apr(?:il|ile)?|may|mai|mayo|jun(?:e|io)?|jul(?:y|io)?|aug(?:ust|osto)?|sep(?:t(?:ember)?|tiembre)?|oct(?:ober|ubre)?|nov(?:ember|iembre)?|dec(?:ember|iembre)?|janvier|fevrier|mars|avril|juin|juillet|aout|septembre|octobre|novembre|decembre|enero|abril|agosto|diciembre|gennaio|maggio|giugno|luglio|settembre|ottobre|dicembre)\b/i);
+  if (!match) return "";
+  const monthIndex = mapMonthTokenToIndex(match[2]);
+  if (monthIndex == null) return "";
+  const now = new Date();
+  let due = new Date(now.getFullYear(), monthIndex, Number(match[1]));
+  if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+    due = new Date(now.getFullYear() + 1, monthIndex, Number(match[1]));
+  }
+  return due.toISOString().slice(0, 10);
+}
+
+function mapMonthTokenToIndex(token) {
+  const normalized = String(token || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const map = {
+    jan: 0, january: 0, janvier: 0, enero: 0, gennaio: 0,
+    feb: 1, february: 1, fevrier: 1, febrero: 1, febbraio: 1,
+    mar: 2, march: 2, mars: 2, marzo: 2,
+    apr: 3, april: 3, avril: 3, abril: 3, aprile: 3,
+    may: 4, mai: 4, mayo: 4, maggio: 4,
+    jun: 5, june: 5, juin: 5, junio: 5, giugno: 5,
+    jul: 6, july: 6, juillet: 6, julio: 6, luglio: 6,
+    aug: 7, august: 7, aout: 7, agosto: 7,
+    sep: 8, sept: 8, september: 8, septembre: 8, septiembre: 8, settembre: 8,
+    oct: 9, october: 9, octobre: 9, octubre: 9, ottobre: 9,
+    nov: 10, november: 10, novembre: 10, noviembre: 10,
+    dec: 11, december: 11, decembre: 11, diciembre: 11, dicembre: 11
+  };
+  return map[normalized];
+}
+
+function normalizeLocale(value) {
+  const locale = String(value || "").trim().replace(/_/g, "-");
+  if (!locale) return "";
+  return /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(locale) ? locale : "";
 }
 
 async function registerPushToken(auth, body) {
@@ -2812,6 +3640,23 @@ async function postJson(url, body, headers) {
   return data;
 }
 
+async function getJson(url, headers = {}) {
+  const response = await fetch(url, { method: "GET", headers });
+  const text = await response.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+  }
+  if (!response.ok) {
+    throw new Error(normalizeError(data.error_description || data.error || data.message || data || `HTTP ${response.status}`));
+  }
+  return data;
+}
+
 async function listIntegrations(auth = null) {
   if (auth && hasPostgresConfig()) {
     const rows = await postgresRows(
@@ -2855,6 +3700,34 @@ function providerStatus() {
   );
 }
 
+function emailDeliveryStatus() {
+  const provider = getEmailDeliveryProvider() || (isResendConfigured() ? "resend" : isPostmarkConfigured() ? "postmark" : "");
+  const from = getEmailFromAddress();
+  return {
+    provider: provider || "not_configured",
+    configured: hasConfiguredEmailDelivery(),
+    from: from ? maskEmail(from) : "",
+    fromDomain: getEmailAddressDomain(from),
+    resend: {
+      configured: isResendConfigured()
+    },
+    postmark: {
+      configured: isPostmarkConfigured()
+    }
+  };
+}
+
+function ssoProviderStatus() {
+  return Object.fromEntries(
+    Object.keys(SSO_PROVIDERS).map((providerId) => [
+      providerId,
+      {
+        configured: isSsoProviderConfigured(providerId)
+      }
+    ])
+  );
+}
+
 function getProvider(providerId) {
   const provider = PROVIDERS[providerId];
   if (!provider) {
@@ -2863,10 +3736,29 @@ function getProvider(providerId) {
   return provider;
 }
 
+function getSsoProvider(providerId) {
+  const provider = SSO_PROVIDERS[providerId];
+  if (!provider) {
+    throw new Error(`Unknown SSO provider: ${providerId}`);
+  }
+  return provider;
+}
+
 function requireProviderConfig(provider) {
   if (!provider.clientId || !provider.clientSecret) {
     throw new Error(`${provider.name} OAuth is missing client ID or secret.`);
   }
+}
+
+function requireSsoProviderConfig(provider) {
+  if (!provider.clientId || !provider.clientSecret) {
+    throw new Error(`${provider.name} Team SSO is missing client ID or secret.`);
+  }
+}
+
+function isSsoProviderConfigured(providerId) {
+  const provider = SSO_PROVIDERS[providerId];
+  return Boolean(provider?.clientId && provider?.clientSecret);
 }
 
 async function getConnection(providerId, companyId = "") {
@@ -2981,6 +3873,8 @@ function ensureStore() {
     writeStore({
       oauthStates: {},
       connections: {},
+      workspaceSsoConfigs: {},
+      userIdentities: [],
       pushTokens: [],
       scheduledReminders: [],
       authCodes: {},
@@ -2996,6 +3890,8 @@ function readStore() {
   const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
   store.oauthStates ||= {};
   store.connections ||= {};
+  store.workspaceSsoConfigs ||= {};
+  store.userIdentities ||= [];
   store.pushTokens ||= [];
   store.scheduledReminders ||= [];
   store.authCodes ||= {};
@@ -3143,12 +4039,29 @@ function getRateLimitConfig(bucket) {
   return { windowMs: RATE_LIMIT_WINDOW_MS, max: RATE_LIMIT_MAX_REQUESTS };
 }
 
+function getAppEnvironment() {
+  return String(
+    process.env.APP_ENV ||
+    process.env.DEPLOY_ENV ||
+    process.env.ENVIRONMENT ||
+    process.env.NODE_ENV ||
+    ""
+  ).trim().toLowerCase();
+}
+
 function isProduction() {
   return process.env.NODE_ENV === "production";
 }
 
+function isStagingEnvironment() {
+  return getAppEnvironment() === "staging";
+}
+
 function isDevAuthCodeEnabled() {
-  return !isProduction() && process.env.ALLOW_DEV_AUTH_CODE === "true";
+  if (process.env.ALLOW_DEV_AUTH_CODE === "true" && !isProduction()) {
+    return true;
+  }
+  return isStagingEnvironment() && process.env.ALLOW_STAGING_DEV_AUTH_CODE === "true";
 }
 
 function parseAllowedOrigins(value) {
@@ -3183,17 +4096,230 @@ function normalizeEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
 }
 
+function extractEmailAddress(value) {
+  const text = String(value || "").trim();
+  const bracketMatch = text.match(/<([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>/);
+  if (bracketMatch) return bracketMatch[1].toLowerCase();
+  const plainMatch = text.match(/([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)/);
+  return plainMatch ? plainMatch[1].toLowerCase() : "";
+}
+
+function getEmailAddressDomain(value) {
+  const email = extractEmailAddress(value);
+  return email.includes("@") ? email.split("@").pop() : "";
+}
+
+function maskEmail(value) {
+  const email = extractEmailAddress(value);
+  if (!email) return "";
+  const [local, domain] = email.split("@");
+  const safeLocal = local.length <= 2 ? `${local.slice(0, 1)}*` : `${local.slice(0, 2)}***`;
+  return `${safeLocal}@${domain}`;
+}
+
 function normalizeDomain(value) {
   return String(value || "").trim().replace(/^@/, "").toLowerCase();
 }
 
+function sanitizeFrontendRedirect(value) {
+  const fallback = `${String(FRONTEND_ORIGIN || "https://todomessenger.example").replace(/\/$/, "")}/app.html`;
+  if (!value) return fallback;
+  try {
+    const target = new URL(value);
+    if (target.protocol === "file:") {
+      return isProduction() ? fallback : target.toString();
+    }
+    const allowedOrigin = new URL(FRONTEND_ORIGIN).origin;
+    if (target.origin === allowedOrigin || FRONTEND_ORIGINS.has(target.origin)) {
+      return target.toString();
+    }
+  } catch {}
+  return fallback;
+}
+
+function buildSsoRedirectUrl(base, { token = "", provider = "", error = "" } = {}) {
+  const redirectTarget = sanitizeFrontendRedirect(base);
+  const params = new URLSearchParams();
+  if (token) params.set("sso_token", token);
+  if (provider) params.set("sso_provider", provider);
+  if (error) params.set("sso_error", error);
+  return `${redirectTarget.replace(/#.*$/, "")}#${params.toString()}`;
+}
+
+function parseJwtClaims(token) {
+  try {
+    const [, payload = ""] = String(token || "").split(".");
+    if (!payload) return {};
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = Buffer.from(normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), "="), "base64").toString("utf8");
+    return JSON.parse(decoded);
+  } catch {
+    return {};
+  }
+}
+
 function normalizeRole(value) {
   const role = String(value || "").toLowerCase();
-  return ["admin", "team_lead", "employee"].includes(role) ? role : "employee";
+  if (role === "super_admin") return "superadmin";
+  return ["superadmin", "admin", "manager", "team_lead", "employee"].includes(role) ? role : "employee";
+}
+
+function getGrantableRolesForRole(role) {
+  switch (normalizeRole(role)) {
+    case "superadmin":
+      return ["employee", "manager", "team_lead", "admin"];
+    case "admin":
+      return ["employee", "manager", "team_lead"];
+    case "manager":
+    case "team_lead":
+      return ["employee"];
+    default:
+      return [];
+  }
+}
+
+function getProvisionedRole({ requestedRole = "", existingRole = "", existingUsersCount = 0 } = {}) {
+  const hasRequestedRole = String(requestedRole || "").trim().length > 0;
+  const hasExistingRole = String(existingRole || "").trim().length > 0;
+  const normalizedRequestedRole = hasRequestedRole ? normalizeRole(requestedRole) : "";
+  const normalizedExistingRole = hasExistingRole ? normalizeRole(existingRole) : "";
+  if (normalizedRequestedRole) {
+    if (["admin", "manager", "team_lead", "employee"].includes(normalizedRequestedRole)) {
+      return normalizedRequestedRole;
+    }
+  }
+  if (normalizedExistingRole) {
+    return normalizedExistingRole;
+  }
+  if (Number(existingUsersCount || 0) === 0) {
+    return "superadmin";
+  }
+  return "employee";
+}
+
+function assertRoleGrantAllowed(actorRole, targetRole) {
+  const normalizedActorRole = normalizeRole(actorRole);
+  const normalizedTargetRole = normalizeRole(targetRole);
+  const grantableRoles = getGrantableRolesForRole(normalizedActorRole);
+  if (!grantableRoles.length) {
+    throw new Error("Only workspace leadership can invite employees.");
+  }
+  if (!grantableRoles.includes(normalizedTargetRole)) {
+    if (normalizedActorRole === "superadmin") {
+      throw new Error("That access level cannot be granted from this flow.");
+    }
+    throw new Error("You do not have permission to grant that access level.");
+  }
 }
 
 function createAuthCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function getEmailDeliveryProvider() {
+  return String(process.env.EMAIL_PROVIDER || "").trim().toLowerCase();
+}
+
+function getEmailFromAddress() {
+  return String(process.env.EMAIL_FROM || process.env.AUTH_EMAIL_FROM || "").trim();
+}
+
+function getEmailReplyToAddress() {
+  return String(process.env.EMAIL_REPLY_TO || "").trim();
+}
+
+function isResendConfigured() {
+  return Boolean(process.env.RESEND_API_KEY && getEmailFromAddress());
+}
+
+function isPostmarkConfigured() {
+  return Boolean(process.env.POSTMARK_SERVER_TOKEN && getEmailFromAddress());
+}
+
+function hasConfiguredEmailDelivery() {
+  const provider = getEmailDeliveryProvider();
+  if (provider === "resend") return isResendConfigured();
+  if (provider === "postmark") return isPostmarkConfigured();
+  return isResendConfigured() || isPostmarkConfigured();
+}
+
+function assertEmailDeliveryConfigured() {
+  if (hasConfiguredEmailDelivery()) return;
+  throw new Error(
+    "Email delivery is not configured. Set EMAIL_PROVIDER plus provider credentials, for example RESEND_API_KEY and EMAIL_FROM."
+  );
+}
+
+async function sendVerificationCodeEmail({ email, code }) {
+  const provider = getEmailDeliveryProvider() || (isResendConfigured() ? "resend" : isPostmarkConfigured() ? "postmark" : "");
+  const appName = process.env.APP_NAME || "TodoMessenger";
+  const from = getEmailFromAddress();
+  const replyTo = getEmailReplyToAddress();
+  const subject = `${appName} verification code`;
+  const intro = `Your ${appName} verification code is:`;
+  const expiresMinutes = Math.round(AUTH_CODE_TTL_MS / 60000);
+  const text = `${intro}\n\n${code}\n\nThis code expires in ${expiresMinutes} minutes.`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #101820;">
+      <h1 style="font-size: 22px; margin-bottom: 12px;">${escapeHtml(appName)} verification code</h1>
+      <p style="font-size: 16px; line-height: 1.5;">Your verification code is:</p>
+      <div style="margin: 20px 0; padding: 16px 20px; background: #f3f7fb; border: 1px solid #d9e3ec; border-radius: 12px; font-size: 32px; font-weight: 800; letter-spacing: 6px; text-align: center;">
+        ${escapeHtml(code)}
+      </div>
+      <p style="font-size: 14px; line-height: 1.5; color: #667789;">This code expires in ${expiresMinutes} minutes.</p>
+    </div>
+  `.trim();
+
+  if (provider === "resend") {
+    await sendEmailWithResend({ to: email, from, replyTo, subject, text, html });
+    console.log(`Email verification code sent via Resend to ${maskEmail(email)} from ${maskEmail(from)}.`);
+    return;
+  }
+  if (provider === "postmark") {
+    await sendEmailWithPostmark({ to: email, from, replyTo, subject, text, html });
+    console.log(`Email verification code sent via Postmark to ${maskEmail(email)} from ${maskEmail(from)}.`);
+    return;
+  }
+
+  throw new Error("No supported email provider is configured. Use EMAIL_PROVIDER=resend or EMAIL_PROVIDER=postmark.");
+}
+
+async function sendEmailWithResend({ to, from, replyTo, subject, text, html }) {
+  await postJson(
+    "https://api.resend.com/emails",
+    JSON.stringify({
+      from,
+      to: [to],
+      reply_to: replyTo || undefined,
+      subject,
+      text,
+      html
+    }),
+    {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  );
+}
+
+async function sendEmailWithPostmark({ to, from, replyTo, subject, text, html }) {
+  await postJson(
+    "https://api.postmarkapp.com/email",
+    JSON.stringify({
+      From: from,
+      To: to,
+      ReplyTo: replyTo || undefined,
+      Subject: subject,
+      TextBody: text,
+      HtmlBody: html,
+      MessageStream: process.env.POSTMARK_MESSAGE_STREAM || "outbound"
+    }),
+    {
+      "X-Postmark-Server-Token": process.env.POSTMARK_SERVER_TOKEN,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    }
+  );
 }
 
 function isValidAuthCode(authCode, code, mode) {
@@ -3226,6 +4352,15 @@ function hashSecret(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function createWorkspaceRecord({ name, domain }) {
   return {
     id: crypto.randomUUID(),
@@ -3243,6 +4378,15 @@ function createSessionRecord(userId) {
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString()
   };
+}
+
+async function createPersistedSessionForUser(userId) {
+  const token = crypto.randomBytes(32).toString("hex");
+  await postgresQuery(
+    "insert into sessions (id, user_id, token_hash, expires_at, created_at) values ($1, $2, $3, now() + interval '30 days', now())",
+    [crypto.randomUUID(), userId, hashSecret(token)]
+  );
+  return { token };
 }
 
 function normalizeDbUser(user) {
@@ -3287,6 +4431,43 @@ async function databaseStatus() {
 
 async function ensurePostgresRuntimeSchema() {
   if (!hasPostgresConfig() || postgresRuntimeSchemaReady) return;
+  await postgresQuery(`
+    create table if not exists workspace_sso_configs (
+      company_id uuid primary key references companies(id) on delete cascade,
+      require_sso boolean not null default false,
+      allow_email_fallback boolean not null default true,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      updated_by uuid null references users(id) on delete set null
+    )
+  `);
+  await postgresQuery(`
+    create table if not exists workspace_sso_providers (
+      company_id uuid not null references companies(id) on delete cascade,
+      provider varchar(80) not null,
+      enabled boolean not null default false,
+      domain_hint varchar(160) null,
+      tenant_hint varchar(160) null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      primary key (company_id, provider)
+    )
+  `);
+  await postgresQuery(`
+    create table if not exists user_identities (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid not null references users(id) on delete cascade,
+      company_id uuid not null references companies(id) on delete cascade,
+      provider varchar(80) not null,
+      provider_user_id varchar(255) not null,
+      email varchar(255) null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      unique (company_id, provider, provider_user_id),
+      unique (user_id, provider)
+    )
+  `);
+  await postgresQuery("create index if not exists user_identities_company_provider_idx on user_identities(company_id, provider)");
   await postgresQuery("alter table users add column if not exists about varchar(240) not null default 'Available'");
   await postgresQuery("alter table messages add column if not exists reply_to_json jsonb null");
   await postgresQuery(`

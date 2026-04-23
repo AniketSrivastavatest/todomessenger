@@ -23,6 +23,276 @@ const mediaLibrary = {
 
 mediaLibrary.emoji = ["😀", "😃", "😄", "😁", "😂", "😅", "😉", "😍", "🥳", "😎", "🤔", "😢", "😭", "😡", "🥱", "🤯", "😴", "🥺", "😬", "😇", "👍", "👎", "👏", "🙏", "🤝", "💪", "👀", "👋", "✅", "❌", "❗", "⭐", "🔥", "💡", "🚀", "🎉", "🎯", "📌", "📎", "💬", "💼", "📅", "🔔", "📣", "🤖", "🧠", "🎧", "📞", "🍀", "❤️"];
 
+const i18nCatalog = {
+  en: {
+    stepEmail: "Email",
+    stepVerify: "Verify",
+    stepProfile: "Profile",
+    registrationEnterTitle: "Enter your work email",
+    registrationEnterBody: "Use your company email to join TodoMessenger and open your chats and tasks.",
+    registrationVerifyTitle: "Verify your email",
+    registrationVerifyBody: "Enter the code created by the backend to continue.",
+    registrationProfileTitle: "Set up your profile",
+    registrationProfileBody: "Add your name so people know who is messaging them.",
+    verifyCodeFor: "Code for {email}",
+    verifyCodeFallbackEmail: "your work email",
+    demoCodeMissing: "No local code is saved for this attempt. Click Resend code.",
+    verifyCodeInbox: "We sent a verification code to your inbox.",
+    verifyCodeResent: "We sent a fresh verification code to your inbox.",
+    demoCodeLabel: "Local development code: {code}",
+    useLocalCode: "Use local code",
+    useLocalCodeWithValue: "Use local code {code}",
+    emailHelper: "Use your company email to continue. If your workspace has Team SSO, TodoMessenger will show your company sign-in options here.",
+    ssoCheckProviders: "Enter your work email to check available providers.",
+    ssoNotRequired: "No company sign-in provider is required for this email yet.",
+    ssoRequired: "This workspace requires Team SSO. Use your company sign-in to continue.",
+    ssoAvailable: "Company sign-in is available for this workspace.",
+    ssoLoadFailed: "Could not load Team SSO options. {error}",
+    continueWithGoogle: "Continue with Google",
+    continueWithMicrosoft: "Continue with Microsoft",
+    chats: "Chats",
+    tasks: "Tasks",
+    search: "Search",
+    searchChatsPlaceholder: "Search or start a new chat",
+    toDo: "To-Do",
+    open: "Open",
+    dueToday: "Due today",
+    all: "All",
+    done: "Done",
+    openTasks: "open tasks",
+    reminders: "reminders",
+    taskReminders: "Task reminders",
+    notificationsOff: "Notifications are off.",
+    enableNotifications: "Enable notifications",
+    task: "Task",
+    addTaskForChat: "Add a task for this chat",
+    assignTo: "Assign to",
+    assignPlaceholder: "Me, Alex, Sarah",
+    multiAssignHelp: "Use commas to assign one task to multiple people.",
+    due: "Due",
+    priority: "Priority",
+    normal: "Normal",
+    high: "High",
+    low: "Low",
+    reminder: "Reminder",
+    addTask: "Add task",
+    bluOrganize: "Let Blu organize this conversation",
+    bluOrganizeHelp: "Blu reads recent messages from this chat only when you tap this button.",
+    backToChats: "Back to chats",
+    newGroup: "New group",
+    createGroup: "Create group",
+    tasksMenu: "Tasks",
+    disappearingMessages: "Disappearing messages",
+    importFromApps: "Import from apps",
+    inviteContact: "Invite contact",
+    settings: "Settings",
+    logOut: "Log out",
+    media: "Media",
+    emoji: "Emoji",
+    gifs: "GIFs",
+    stickers: "Stickers",
+    searchMediaPlaceholder: "Search emoji or media",
+    messagePlaceholder: "Message, /todo, or @blu ask anything",
+    send: "Send",
+    next: "Next",
+    verifyEmail: "Verify email",
+    resendCode: "Resend code",
+    editEmail: "Edit email",
+    yourName: "Your name",
+    yourDisplayName: "Your display name",
+    about: "About",
+    available: "Available",
+    startMessaging: "Start messaging",
+    workEmail: "Work email",
+    emailCode: "Email code",
+    companySignIn: "Company sign-in",
+    newChat: "New chat",
+    name: "Name",
+    status: "Status",
+    cancel: "Cancel",
+    createChat: "Create chat",
+    addTaskFromChat: "Add task from chat"
+  },
+  fr: {
+    stepEmail: "E-mail",
+    stepVerify: "Vérifier",
+    stepProfile: "Profil",
+    registrationEnterTitle: "Entrez votre e-mail professionnel",
+    registrationEnterBody: "Utilisez votre e-mail d'entreprise pour rejoindre TodoMessenger et ouvrir vos discussions et vos tâches.",
+    registrationVerifyTitle: "Vérifiez votre e-mail",
+    registrationVerifyBody: "Saisissez le code généré par le backend pour continuer.",
+    registrationProfileTitle: "Configurez votre profil",
+    registrationProfileBody: "Ajoutez votre nom pour que les autres sachent qui leur envoie un message.",
+    verifyCodeFor: "Code pour {email}",
+    verifyCodeFallbackEmail: "votre e-mail professionnel",
+    demoCodeMissing: "Aucun code local n'est enregistré pour cette tentative. Cliquez sur Renvoyer le code.",
+    verifyCodeInbox: "Nous avons envoyé un code de vérification dans votre boîte mail.",
+    verifyCodeResent: "Nous avons envoyé un nouveau code de vérification dans votre boîte mail.",
+    demoCodeLabel: "Code de développement local : {code}",
+    useLocalCode: "Utiliser le code local",
+    useLocalCodeWithValue: "Utiliser le code local {code}",
+    emailHelper: "Utilisez votre e-mail professionnel pour continuer. Si votre espace de travail utilise Team SSO, TodoMessenger affichera ici vos options de connexion d'entreprise.",
+    ssoCheckProviders: "Entrez votre e-mail professionnel pour vérifier les fournisseurs disponibles.",
+    ssoNotRequired: "Aucun fournisseur de connexion d'entreprise n'est requis pour cet e-mail pour le moment.",
+    ssoRequired: "Cet espace de travail exige Team SSO. Utilisez la connexion de votre entreprise pour continuer.",
+    ssoAvailable: "La connexion d'entreprise est disponible pour cet espace de travail.",
+    ssoLoadFailed: "Impossible de charger les options Team SSO. {error}",
+    continueWithGoogle: "Continuer avec Google",
+    continueWithMicrosoft: "Continuer avec Microsoft",
+    chats: "Discussions",
+    tasks: "Tâches",
+    search: "Recherche",
+    searchChatsPlaceholder: "Rechercher ou démarrer une nouvelle discussion",
+    toDo: "À faire",
+    open: "Ouvert",
+    dueToday: "Pour aujourd'hui",
+    all: "Toutes",
+    done: "Terminées",
+    openTasks: "tâches ouvertes",
+    reminders: "rappels",
+    taskReminders: "Rappels de tâches",
+    notificationsOff: "Les notifications sont désactivées.",
+    enableNotifications: "Activer les notifications",
+    task: "Tâche",
+    addTaskForChat: "Ajouter une tâche pour cette discussion",
+    assignTo: "Attribuer à",
+    assignPlaceholder: "Moi, Alex, Sarah",
+    multiAssignHelp: "Utilisez des virgules pour attribuer une même tâche à plusieurs personnes.",
+    due: "Échéance",
+    priority: "Priorité",
+    normal: "Normale",
+    high: "Haute",
+    low: "Basse",
+    reminder: "Rappel",
+    addTask: "Ajouter la tâche",
+    bluOrganize: "Laisser Blu organiser cette conversation",
+    bluOrganizeHelp: "Blu lit les messages récents de cette discussion uniquement quand vous appuyez sur ce bouton.",
+    backToChats: "Retour aux discussions",
+    newGroup: "Nouveau groupe",
+    createGroup: "Créer le groupe",
+    tasksMenu: "Tâches",
+    disappearingMessages: "Messages éphémères",
+    importFromApps: "Importer depuis des apps",
+    inviteContact: "Inviter un contact",
+    settings: "Paramètres",
+    logOut: "Se déconnecter",
+    media: "Médias",
+    emoji: "Emoji",
+    gifs: "GIFs",
+    stickers: "Stickers",
+    searchMediaPlaceholder: "Rechercher un emoji ou un média",
+    messagePlaceholder: "Message, /todo, ou @blu pose une question",
+    send: "Envoyer",
+    next: "Suivant",
+    verifyEmail: "Vérifier l'e-mail",
+    resendCode: "Renvoyer le code",
+    editEmail: "Modifier l'e-mail",
+    yourName: "Votre nom",
+    yourDisplayName: "Votre nom affiché",
+    about: "À propos",
+    available: "Disponible",
+    startMessaging: "Commencer à discuter",
+    workEmail: "E-mail professionnel",
+    emailCode: "Code e-mail",
+    companySignIn: "Connexion d'entreprise",
+    newChat: "Nouvelle discussion",
+    name: "Nom",
+    status: "Statut",
+    cancel: "Annuler",
+    createChat: "Créer la discussion",
+    addTaskFromChat: "Ajouter une tâche depuis la discussion"
+  },
+  es: {
+    stepEmail: "Correo",
+    stepVerify: "Verificar",
+    stepProfile: "Perfil",
+    registrationEnterTitle: "Introduce tu correo de trabajo",
+    registrationEnterBody: "Usa tu correo corporativo para unirte a TodoMessenger y abrir tus chats y tareas.",
+    registrationVerifyTitle: "Verifica tu correo",
+    registrationVerifyBody: "Introduce el código generado por el backend para continuar.",
+    registrationProfileTitle: "Configura tu perfil",
+    registrationProfileBody: "Añade tu nombre para que los demás sepan quién les escribe.",
+    verifyCodeFor: "Código para {email}",
+    verifyCodeFallbackEmail: "tu correo de trabajo",
+    demoCodeMissing: "No hay ningún código local guardado para este intento. Haz clic en Reenviar código.",
+    verifyCodeInbox: "Enviamos un código de verificación a tu bandeja de entrada.",
+    verifyCodeResent: "Enviamos un nuevo código de verificación a tu bandeja de entrada.",
+    demoCodeLabel: "Código local de desarrollo: {code}",
+    useLocalCode: "Usar código local",
+    useLocalCodeWithValue: "Usar código local {code}",
+    emailHelper: "Usa tu correo de trabajo para continuar. Si tu espacio usa Team SSO, TodoMessenger mostrará aquí las opciones de acceso corporativo.",
+    ssoCheckProviders: "Introduce tu correo de trabajo para comprobar los proveedores disponibles.",
+    ssoNotRequired: "Todavía no se requiere ningún proveedor de acceso corporativo para este correo.",
+    ssoRequired: "Este espacio requiere Team SSO. Usa el acceso de tu empresa para continuar.",
+    ssoAvailable: "El acceso corporativo está disponible para este espacio.",
+    ssoLoadFailed: "No se pudieron cargar las opciones de Team SSO. {error}",
+    continueWithGoogle: "Continuar con Google",
+    continueWithMicrosoft: "Continuar con Microsoft",
+    chats: "Chats",
+    tasks: "Tareas",
+    search: "Buscar",
+    searchChatsPlaceholder: "Buscar o iniciar un chat nuevo",
+    toDo: "Pendientes",
+    open: "Abiertas",
+    dueToday: "Para hoy",
+    all: "Todas",
+    done: "Hechas",
+    openTasks: "tareas abiertas",
+    reminders: "recordatorios",
+    taskReminders: "Recordatorios de tareas",
+    notificationsOff: "Las notificaciones están desactivadas.",
+    enableNotifications: "Activar notificaciones",
+    task: "Tarea",
+    addTaskForChat: "Añadir una tarea para este chat",
+    assignTo: "Asignar a",
+    assignPlaceholder: "Yo, Alex, Sarah",
+    multiAssignHelp: "Usa comas para asignar una misma tarea a varias personas.",
+    due: "Fecha límite",
+    priority: "Prioridad",
+    normal: "Normal",
+    high: "Alta",
+    low: "Baja",
+    reminder: "Recordatorio",
+    addTask: "Añadir tarea",
+    bluOrganize: "Deja que Blu organice esta conversación",
+    bluOrganizeHelp: "Blu lee los mensajes recientes de este chat solo cuando tocas este botón.",
+    backToChats: "Volver a chats",
+    newGroup: "Nuevo grupo",
+    createGroup: "Crear grupo",
+    tasksMenu: "Tareas",
+    disappearingMessages: "Mensajes temporales",
+    importFromApps: "Importar desde apps",
+    inviteContact: "Invitar contacto",
+    settings: "Ajustes",
+    logOut: "Cerrar sesión",
+    media: "Multimedia",
+    emoji: "Emoji",
+    gifs: "GIFs",
+    stickers: "Stickers",
+    searchMediaPlaceholder: "Buscar emoji o multimedia",
+    messagePlaceholder: "Mensaje, /todo o @blu pregunta lo que quieras",
+    send: "Enviar",
+    next: "Siguiente",
+    verifyEmail: "Verificar correo",
+    resendCode: "Reenviar código",
+    editEmail: "Editar correo",
+    yourName: "Tu nombre",
+    yourDisplayName: "Tu nombre visible",
+    about: "Acerca de",
+    available: "Disponible",
+    startMessaging: "Empezar a chatear",
+    workEmail: "Correo de trabajo",
+    emailCode: "Código por correo",
+    companySignIn: "Acceso corporativo",
+    newChat: "Nuevo chat",
+    name: "Nombre",
+    status: "Estado",
+    cancel: "Cancelar",
+    createChat: "Crear chat",
+    addTaskFromChat: "Añadir tarea desde el chat"
+  }
+};
+
 const seedState = {
   activeId: "launch",
   registration: {
@@ -30,6 +300,7 @@ const seedState = {
     pendingEmail: "",
     pendingCode: "",
     demoCode: "",
+    errorMessage: "",
     sessionToken: "",
     user: null
   },
@@ -39,6 +310,14 @@ const seedState = {
     domain: "acme.com",
     inviteCode: "TM-482913",
     role: "Admin",
+    sso: {
+      requireSso: false,
+      allowEmailFallback: true,
+      providers: [
+        { provider: "google", name: "Google Workspace", enabled: false, configured: false, domainHint: "acme.com", tenantHint: "" },
+        { provider: "microsoft", name: "Microsoft", enabled: false, configured: false, domainHint: "acme.com", tenantHint: "common" }
+      ]
+    },
     software: [
       { id: "teams", name: "Microsoft Teams", type: "Chat and calls", enabled: true },
       { id: "gmail", name: "Gmail", type: "Email", enabled: true },
@@ -180,6 +459,10 @@ let deviceIdentityPromise;
 const conversationKeyCache = new Map();
 let linkedDevices = [];
 let adminAuditEvents = [];
+let pendingRoleChangeConfirmation = null;
+let backendHealthPromise = null;
+let backendHealthCheckedAt = 0;
+let backendHealthSnapshot = null;
 
 const els = {
   activeAvatar: document.querySelector("#activeAvatar"),
@@ -193,8 +476,12 @@ const els = {
   attachButton: document.querySelector("#attachButton"),
   attachmentInput: document.querySelector("#attachmentInput"),
   backToChatsButton: document.querySelector("#backToChatsButton"),
+  backendStatusChip: document.querySelector("#backendStatusChip"),
+  backendStatusText: document.querySelector("#backendStatusText"),
   bluActionCount: document.querySelector("#bluActionCount"),
   bluActionList: document.querySelector("#bluActionList"),
+  bluVoiceStatus: document.querySelector("#bluVoiceStatus"),
+  approveAllBluActionsButton: document.querySelector("#approveAllBluActionsButton"),
   bluAllowBackgroundJobs: document.querySelector("#bluAllowBackgroundJobs"),
   bluAllowExternalSync: document.querySelector("#bluAllowExternalSync"),
   bluAllowTasks: document.querySelector("#bluAllowTasks"),
@@ -215,12 +502,16 @@ const els = {
   closeAssignmentFallbackDialog: document.querySelector("#closeAssignmentFallbackDialog"),
   closeMcpDialog: document.querySelector("#closeMcpDialog"),
   closeQuickTaskDialog: document.querySelector("#closeQuickTaskDialog"),
+  closeRoleChangeConfirmDialog: document.querySelector("#closeRoleChangeConfirmDialog"),
   closeSettingsDialog: document.querySelector("#closeSettingsDialog"),
+  composeMenuPanel: document.querySelector("#composeMenuPanel"),
   contactSyncDialog: document.querySelector("#contactSyncDialog"),
   connectedApps: document.querySelector("#connectedApps"),
+  connectGoogleCalendarButton: document.querySelector("#connectGoogleCalendarButton"),
   copyAssignmentFallbackButton: document.querySelector("#copyAssignmentFallbackButton"),
   copyConnectCodeButton: document.querySelector("#copyConnectCodeButton"),
   copyInviteButton: document.querySelector("#copyInviteButton"),
+  confirmRoleChangeConfirmButton: document.querySelector("#confirmRoleChangeConfirmButton"),
   customMcpForm: document.querySelector("#customMcpForm"),
   emailAssignmentFallbackLink: document.querySelector("#emailAssignmentFallbackLink"),
   emailForm: document.querySelector("#emailForm"),
@@ -270,13 +561,21 @@ const els = {
   mediaSearchInput: document.querySelector("#mediaSearchInput"),
   mediaTabs: document.querySelector("#mediaTabs"),
   mediaTray: document.querySelector("#mediaTray"),
+  mainApproveAllBluActionsButton: document.querySelector("#mainApproveAllBluActionsButton"),
+  mainBluActionCount: document.querySelector("#mainBluActionCount"),
+  mainBluActionList: document.querySelector("#mainBluActionList"),
+  mainBluCalendarStatus: document.querySelector("#mainBluCalendarStatus"),
+  mainRefreshBluActionsButton: document.querySelector("#mainRefreshBluActionsButton"),
+  menuLogoutButton: document.querySelector("#menuLogoutButton"),
   moreButton: document.querySelector("#moreButton"),
   moreMenuPanel: document.querySelector("#moreMenuPanel"),
   newChatButton: document.querySelector("#newChatButton"),
   newChatDialog: document.querySelector("#newChatDialog"),
+  newChatDialogTitle: document.querySelector("#newChatDialogTitle"),
   newChatForm: document.querySelector("#newChatForm"),
   newChatName: document.querySelector("#newChatName"),
   newChatStatus: document.querySelector("#newChatStatus"),
+  newChatType: document.querySelector("#newChatType"),
   notificationButton: document.querySelector("#notificationButton"),
   notificationStatus: document.querySelector("#notificationStatus"),
   openTaskCount: document.querySelector("#openTaskCount"),
@@ -298,6 +597,7 @@ const els = {
   registrationScreen: document.querySelector("#registrationScreen"),
   registrationTitle: document.querySelector("#registrationTitle"),
   regenerateInviteButton: document.querySelector("#regenerateInviteButton"),
+  readTodayTasksButton: document.querySelector("#readTodayTasksButton"),
   reminderCount: document.querySelector("#reminderCount"),
   reminderDialog: document.querySelector("#reminderDialog"),
   reminderMeta: document.querySelector("#reminderMeta"),
@@ -310,6 +610,15 @@ const els = {
   replyPreviewSender: document.querySelector("#replyPreviewSender"),
   replyPreviewText: document.querySelector("#replyPreviewText"),
   roleViewSelect: document.querySelector("#roleViewSelect"),
+  roleChangeConfirmBody: document.querySelector("#roleChangeConfirmBody"),
+  roleChangeConfirmDialog: document.querySelector("#roleChangeConfirmDialog"),
+  roleChangeConfirmTitle: document.querySelector("#roleChangeConfirmTitle"),
+  superadminBackendUrl: document.querySelector("#superadminBackendUrl"),
+  superadminFrontendUrl: document.querySelector("#superadminFrontendUrl"),
+  superadminGoogleHint: document.querySelector("#superadminGoogleHint"),
+  superadminGoogleStatus: document.querySelector("#superadminGoogleStatus"),
+  superadminMicrosoftHint: document.querySelector("#superadminMicrosoftHint"),
+  superadminMicrosoftStatus: document.querySelector("#superadminMicrosoftStatus"),
   shareImportDialog: document.querySelector("#shareImportDialog"),
   shareImportText: document.querySelector("#shareImportText"),
   shareAssignmentFallbackButton: document.querySelector("#shareAssignmentFallbackButton"),
@@ -339,14 +648,19 @@ const els = {
   verifyForm: document.querySelector("#verifyForm"),
   verifyTarget: document.querySelector("#verifyTarget"),
   voiceNoteButton: document.querySelector("#voiceNoteButton"),
+  cancelRoleChangeConfirmButton: document.querySelector("#cancelRoleChangeConfirmButton"),
   closeShareImportDialog: document.querySelector("#closeShareImportDialog"),
   dismissReminderButton: document.querySelector("#dismissReminderButton"),
+  emailLoginHelper: document.querySelector("#emailLoginHelper"),
   nativeShareButton: document.querySelector("#nativeShareButton"),
   openReminderChatButton: document.querySelector("#openReminderChatButton"),
   saveShareToChatButton: document.querySelector("#saveShareToChatButton"),
   saveSettingsProfileButton: document.querySelector("#saveSettingsProfileButton"),
   scanQrButton: document.querySelector("#scanQrButton"),
   settingsAccountEmail: document.querySelector("#settingsAccountEmail"),
+  startDirectChatButton: document.querySelector("#startDirectChatButton"),
+  startGroupChatButton: document.querySelector("#startGroupChatButton"),
+  submitNewChatButton: document.querySelector("#submitNewChatButton"),
   settingsAccountRole: document.querySelector("#settingsAccountRole"),
   settingsAccountWorkspace: document.querySelector("#settingsAccountWorkspace"),
   settingsConnectCode: document.querySelector("#settingsConnectCode"),
@@ -368,6 +682,8 @@ const els = {
   settingsProfileVisibility: document.querySelector("#settingsProfileVisibility"),
   settingsQrCode: document.querySelector("#settingsQrCode"),
   settingsQrStatus: document.querySelector("#settingsQrStatus"),
+  settingsLogoutButton: document.querySelector("#settingsLogoutButton"),
+  settingsSuperadminEntry: document.querySelector("#settingsSuperadminEntry"),
   settingsReadReceipts: document.querySelector("#settingsReadReceipts"),
   settingsSecurityStatus: document.querySelector("#settingsSecurityStatus"),
   settingsSessionStatus: document.querySelector("#settingsSessionStatus"),
@@ -384,9 +700,13 @@ const els = {
   adminAuditStatus: document.querySelector("#adminAuditStatus"),
   shareWorkspaceInviteButton: document.querySelector("#shareWorkspaceInviteButton"),
   suggestTasksButton: document.querySelector("#suggestTasksButton"),
+  googleSsoButton: document.querySelector("#googleSsoButton"),
   whatsappAssignmentFallbackLink: document.querySelector("#whatsappAssignmentFallbackLink"),
   whatsappShareLink: document.querySelector("#whatsappShareLink"),
   workEmail: document.querySelector("#workEmail"),
+  microsoftSsoButton: document.querySelector("#microsoftSsoButton"),
+  ssoLoginBox: document.querySelector("#ssoLoginBox"),
+  ssoLoginStatus: document.querySelector("#ssoLoginStatus"),
   workspaceCompanyName: document.querySelector("#workspaceCompanyName"),
   workspaceDomain: document.querySelector("#workspaceDomain"),
   workspaceForm: document.querySelector("#workspaceForm"),
@@ -394,8 +714,18 @@ const els = {
   workspaceInviteLink: document.querySelector("#workspaceInviteLink"),
   workspaceInviteRole: document.querySelector("#workspaceInviteRole"),
   workspaceInviteStatus: document.querySelector("#workspaceInviteStatus"),
+  workspaceAllowEmailFallback: document.querySelector("#workspaceAllowEmailFallback"),
+  workspaceGoogleDomainHint: document.querySelector("#workspaceGoogleDomainHint"),
+  workspaceGoogleSsoEnabled: document.querySelector("#workspaceGoogleSsoEnabled"),
+  workspaceGoogleSsoMeta: document.querySelector("#workspaceGoogleSsoMeta"),
+  workspaceMicrosoftSsoEnabled: document.querySelector("#workspaceMicrosoftSsoEnabled"),
+  workspaceMicrosoftTenantHint: document.querySelector("#workspaceMicrosoftTenantHint"),
+  workspaceMicrosoftSsoMeta: document.querySelector("#workspaceMicrosoftSsoMeta"),
   workspaceName: document.querySelector("#workspaceName"),
   workspaceRole: document.querySelector("#workspaceRole"),
+  workspaceRequireSso: document.querySelector("#workspaceRequireSso"),
+  workspaceSsoForm: document.querySelector("#workspaceSsoForm"),
+  workspaceSsoStatus: document.querySelector("#workspaceSsoStatus"),
   workspaceTabButton: document.querySelector("#workspaceTabButton"),
   workspaceTabView: document.querySelector("#workspaceTabView")
 };
@@ -418,8 +748,14 @@ els.emailForm.addEventListener("submit", async (event) => {
   }
 
   els.workEmail.setCustomValidity("");
-  await startEmailRegistration(email);
+  await handlePrimaryLogin(email);
 });
+els.workEmail.addEventListener("input", () => {
+  els.workEmail.setCustomValidity("");
+  refreshSsoLoginOptions();
+});
+els.googleSsoButton?.addEventListener("click", () => startSsoLogin("google"));
+els.microsoftSsoButton?.addEventListener("click", () => startSsoLogin("microsoft"));
 
 els.verifyForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -450,7 +786,15 @@ els.resendEmailCodeButton.addEventListener("click", async () => {
     els.workEmail.focus();
     return;
   }
-  await startEmailRegistration(state.registration.pendingEmail);
+  els.resendEmailCodeButton.disabled = true;
+  const previousLabel = els.resendEmailCodeButton.textContent;
+  els.resendEmailCodeButton.textContent = "Resending...";
+  if (els.demoCodeText) {
+    els.demoCodeText.textContent = "Sending a fresh verification code...";
+  }
+  await startEmailRegistration(state.registration.pendingEmail, { fromResend: true });
+  els.resendEmailCodeButton.textContent = previousLabel;
+  els.resendEmailCodeButton.disabled = false;
 });
 els.emailCode.addEventListener("input", () => {
   els.emailCode.setCustomValidity("");
@@ -483,7 +827,11 @@ els.roleViewSelect.addEventListener("change", () => {
 });
 els.suggestTasksButton.addEventListener("click", suggestTasksFromChat);
 els.backToChatsButton.addEventListener("click", () => setView("home"));
-els.newChatButton.addEventListener("click", () => els.newChatDialog.showModal());
+els.newChatButton.addEventListener("click", () => {
+  els.composeMenuPanel.hidden = !els.composeMenuPanel.hidden;
+});
+els.startDirectChatButton?.addEventListener("click", () => openNewConversationDialog("direct"));
+els.startGroupChatButton?.addEventListener("click", () => openNewConversationDialog("group"));
 els.cancelNewChat.addEventListener("click", () => els.newChatDialog.close());
 els.voiceCallButton.addEventListener("click", () => addSystemMessage("Voice call started"));
 els.videoCallButton.addEventListener("click", () => addSystemMessage("Video call started"));
@@ -494,12 +842,18 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest(".more-menu")) {
     els.moreMenuPanel.hidden = true;
   }
+  if (!event.target.closest(".compose-menu")) {
+    els.composeMenuPanel.hidden = true;
+  }
 });
 window.addEventListener("todomessenger:fcmToken", registerFcmToken);
 window.addEventListener("todomessenger:sharedContent", handleSharedContent);
 els.quickTaskButton.addEventListener("click", () => openQuickTaskDialog(els.messageInput.value.trim(), "current chat"));
 els.cancelQuickTask.addEventListener("click", () => els.quickTaskDialog.close());
 els.closeQuickTaskDialog.addEventListener("click", () => els.quickTaskDialog.close());
+els.closeRoleChangeConfirmDialog?.addEventListener("click", () => resolveRoleChangeConfirmation(false));
+els.cancelRoleChangeConfirmButton?.addEventListener("click", () => resolveRoleChangeConfirmation(false));
+els.confirmRoleChangeConfirmButton?.addEventListener("click", () => resolveRoleChangeConfirmation(true));
 els.closeForwardDialog?.addEventListener("click", () => els.forwardDialog.close());
 els.disappearingMessagesButton?.addEventListener("click", openDisappearingDialog);
 els.closeDisappearingDialog?.addEventListener("click", () => els.disappearingDialog.close());
@@ -557,8 +911,13 @@ els.skipInviteContactsButton.addEventListener("click", completeInviteContactsPro
 
 els.openSettingsButton?.addEventListener("click", openSettingsDialog);
 els.openSettingsMenuButton?.addEventListener("click", openSettingsDialog);
+els.menuLogoutButton?.addEventListener("click", () => {
+  els.moreMenuPanel.hidden = true;
+  revokeSessionFromSettings("current");
+});
 els.closeSettingsDialog?.addEventListener("click", () => els.settingsDialog.close());
 els.settingsBackButton?.addEventListener("click", () => setSettingsView("home"));
+els.settingsLogoutButton?.addEventListener("click", () => revokeSessionFromSettings("current"));
 els.saveSettingsProfileButton?.addEventListener("click", saveSettingsProfile);
 els.settingsProfilePhoto?.addEventListener("change", updateSettingsProfilePhoto);
 els.copyConnectCodeButton?.addEventListener("click", copyConnectCode);
@@ -615,13 +974,22 @@ els.workspaceForm.addEventListener("submit", async (event) => {
   await syncWorkspaceToBackend();
   renderWorkspace();
 });
+els.workspaceSsoForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await saveWorkspaceSsoSettings();
+});
 
 els.bluPolicyForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveBluPolicy();
 });
 
+els.approveAllBluActionsButton?.addEventListener("click", approveAllPendingBluActions);
+els.mainApproveAllBluActionsButton?.addEventListener("click", approveAllPendingBluActions);
 els.refreshBluActionsButton.addEventListener("click", syncBluAgentFromBackend);
+els.mainRefreshBluActionsButton?.addEventListener("click", syncBluAgentFromBackend);
+els.readTodayTasksButton?.addEventListener("click", speakTodayPendingTasks);
+els.connectGoogleCalendarButton?.addEventListener("click", () => connectExternalApp("google-calendar"));
 
 els.regenerateInviteButton.addEventListener("click", async () => {
   await createEmployeeInvite();
@@ -715,6 +1083,11 @@ els.newChatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = els.newChatName.value.trim();
   if (!name) return;
+  const type = els.newChatType?.value === "group" ? "group" : "direct";
+  const defaultStatus = type === "group" ? "new group" : "online";
+  const welcomeText = type === "group"
+    ? "New group ready. Add messages, teammates, and tasks whenever you need."
+    : "New chat ready. Say hello whenever you are ready.";
 
   let conversation;
   if (getAuthToken()) {
@@ -723,7 +1096,7 @@ els.newChatForm.addEventListener("submit", async (event) => {
         method: "POST",
         body: {
           name,
-          type: "group"
+          type
         }
       });
       conversation = mapBackendConversation(data.conversation || {});
@@ -736,13 +1109,14 @@ els.newChatForm.addEventListener("submit", async (event) => {
   state.conversations.unshift(conversation || {
     id,
     name,
-    status: els.newChatStatus.value.trim() || "new conversation",
+    type,
+    status: els.newChatStatus.value.trim() || defaultStatus,
     avatar: createAvatarDataUrl(name),
     messages: [
       {
         id: createId("m"),
         sender: "them",
-        text: "New chat ready. Add messages or tasks whenever you need.",
+        text: welcomeText,
         time: formatTime()
       }
     ]
@@ -772,9 +1146,12 @@ function saveState() {
 }
 
 async function bootstrap() {
+  document.documentElement.lang = getUserLocale();
+  applyTranslations();
   encryptionKey = await loadEncryptionKey();
   normalizeConversations();
   await normalizeEncryptedMessages();
+  await processSsoRedirectFromUrl();
   if (isRegistered() && getAuthToken()) {
     await syncFromBackend();
     await ensureDeviceRegistration().catch((error) => console.warn("Device registration unavailable:", error));
@@ -788,6 +1165,7 @@ async function bootstrap() {
 }
 
 async function render() {
+  applyTranslations();
   renderRegistration();
   if (!isRegistered()) return;
 
@@ -804,6 +1182,48 @@ async function render() {
   queueContactPrompts();
 }
 
+async function processSsoRedirectFromUrl() {
+  const hash = String(window.location.hash || "").replace(/^#/, "");
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const ssoToken = params.get("sso_token") || "";
+  const ssoError = params.get("sso_error") || "";
+  const ssoProvider = params.get("sso_provider") || "";
+  if (!ssoToken && !ssoError) return;
+
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  if (ssoError) {
+    state.registration.errorMessage = formatApiError(ssoError);
+    state.registration.step = "email";
+    saveState();
+    return;
+  }
+
+  state.registration.sessionToken = ssoToken;
+  state.registration.step = "complete";
+  state.registration.errorMessage = "";
+  saveState();
+  await syncFromBackend();
+  if (state.registration.user) {
+    connectRealtime();
+    addSystemMessage(`${formatSsoProviderName(ssoProvider)} sign-in complete.`);
+  }
+}
+
+async function handlePrimaryLogin(email) {
+  const ssoOptions = await refreshSsoLoginOptions(email);
+  if (ssoOptions?.requireSso && ssoOptions.allowEmailFallback === false) {
+    if (ssoOptions.providers?.length === 1) {
+      startSsoLogin(ssoOptions.providers[0].provider);
+      return;
+    }
+    els.workEmail.setCustomValidity("This workspace requires Team SSO. Use your company sign-in option below.");
+    els.workEmail.reportValidity();
+    return;
+  }
+  await startEmailRegistration(email);
+}
+
 function setView(view) {
   currentView = view;
   renderView();
@@ -813,8 +1233,10 @@ function renderView() {
   els.appShell.dataset.view = currentView;
 }
 
-async function startEmailRegistration(email) {
+async function startEmailRegistration(email, options = {}) {
+  const fromResend = Boolean(options.fromResend);
   try {
+    state.registration.errorMessage = "";
     els.emailForm.querySelector("button[type='submit']").disabled = true;
     const response = await fetch(`${getBackendUrl()}/api/auth/email/start`, {
       method: "POST",
@@ -832,12 +1254,33 @@ async function startEmailRegistration(email) {
     state.registration.step = "verify";
     saveState();
     renderRegistration();
+    const successMessage = data.message || t(fromResend ? "verifyCodeResent" : "verifyCodeInbox");
+    if (els.demoCodeText) {
+      els.demoCodeText.textContent = state.registration.demoCode
+        ? `Local development code: ${state.registration.demoCode}`
+        : successMessage;
+    }
     if (state.registration.demoCode) {
       els.emailCode.value = state.registration.demoCode;
+    } else if (fromResend) {
+      els.emailCode.value = "";
+    }
+    if (fromResend) {
+      showAppToast("Code resent", successMessage);
     }
     els.emailCode.focus();
   } catch (error) {
-    els.workEmail.setCustomValidity(`Could not start email login. ${formatNetworkError(error)}`);
+    const message = `Could not ${fromResend ? "resend" : "start"} email login. ${formatNetworkError(error)}`;
+    if (state.registration.step === "verify" && els.demoCodeText) {
+      els.demoCodeText.textContent = message;
+      if (fromResend) {
+        showAppToast("Resend failed", formatNetworkError(error));
+      }
+      els.emailCode.setCustomValidity(message);
+      els.emailCode.reportValidity();
+      return;
+    }
+    els.workEmail.setCustomValidity(message);
     els.workEmail.reportValidity();
   } finally {
     els.emailForm.querySelector("button[type='submit']").disabled = false;
@@ -933,6 +1376,7 @@ function normalizeRegistrationState() {
   state.registration.pendingEmail ||= state.registration.user?.email || "";
   state.registration.pendingCode ||= "";
   state.registration.demoCode ||= "";
+  state.registration.errorMessage ||= "";
   state.registration.sessionToken ||= "";
   if (state.registration.user && !state.registration.user.email) {
     state.registration.user = null;
@@ -960,6 +1404,10 @@ function normalizeWorkspace() {
   state.workspace.inviteLink ||= "";
   state.workspace.invites ||= [];
   state.workspace.role ||= "Admin";
+  state.workspace.sso ||= structuredClone(seedState.workspace.sso);
+  state.workspace.sso.requireSso ??= false;
+  state.workspace.sso.allowEmailFallback ??= true;
+  state.workspace.sso.providers ||= structuredClone(seedState.workspace.sso.providers);
   state.workspace.employees ||= [];
   state.workspace.software ||= structuredClone(seedState.workspace.software);
   seedState.workspace.software.forEach((tool) => {
@@ -1113,30 +1561,153 @@ function renderRegistration() {
 
   const copy = {
     email: {
-      title: "Enter your work email",
-      body: "Use your company email to join TodoMessenger and open your chats and tasks."
+      title: t("registrationEnterTitle"),
+      body: t("registrationEnterBody")
     },
     verify: {
-      title: "Verify your email",
-      body: "Enter the code created by the backend to continue."
+      title: t("registrationVerifyTitle"),
+      body: t("registrationVerifyBody")
     },
     profile: {
-      title: "Set up your profile",
-      body: "Add your name so people know who is messaging them."
+      title: t("registrationProfileTitle"),
+      body: t("registrationProfileBody")
     }
   };
 
   els.registrationTitle.textContent = copy[step].title;
   els.registrationCopy.textContent = copy[step].body;
   els.workEmail.value = state.registration.pendingEmail || "";
-  els.verifyTarget.textContent = `Code for ${state.registration.pendingEmail || "your work email"}`;
+  els.verifyTarget.textContent = t("verifyCodeFor", { email: state.registration.pendingEmail || t("verifyCodeFallbackEmail") });
   els.demoCodeText.textContent = state.registration.demoCode
-    ? `Local development code: ${state.registration.demoCode}`
-    : "No local code is saved for this attempt. Click Resend code.";
+    ? t("demoCodeLabel", { code: state.registration.demoCode })
+    : t("verifyCodeInbox");
   els.useDevCodeButton.hidden = !state.registration.demoCode;
   els.useDevCodeButton.textContent = state.registration.demoCode
-    ? `Use local code ${state.registration.demoCode}`
-    : "Use local code";
+    ? t("useLocalCodeWithValue", { code: state.registration.demoCode })
+    : t("useLocalCode");
+  if (step === "email") {
+    const helper = state.registration.errorMessage || t("emailHelper");
+    if (els.emailLoginHelper) {
+      els.emailLoginHelper.textContent = helper;
+    }
+    renderBackendStatus();
+    queueMicrotask(() => {
+      refreshSsoLoginOptions(state.registration.pendingEmail || els.workEmail.value.trim().toLowerCase());
+      refreshBackendHealth();
+    });
+  }
+}
+
+function renderBackendStatus() {
+  if (!els.backendStatusChip || !els.backendStatusText) return;
+  const backendUrl = getBackendUrl();
+  const shortUrl = backendUrl.replace(/^https?:\/\//, "");
+  const snapshot = backendHealthSnapshot;
+  let stateClass = "checking";
+  let text = `Checking ${shortUrl}…`;
+  if (snapshot?.ok === true) {
+    stateClass = "online";
+    text = `Connected to ${shortUrl}`;
+  } else if (snapshot?.ok === false) {
+    stateClass = "offline";
+    text = `Could not reach ${shortUrl}`;
+  }
+  els.backendStatusChip.dataset.state = stateClass;
+  els.backendStatusText.textContent = text;
+}
+
+async function refreshBackendHealth(force = false) {
+  const now = Date.now();
+  if (!force && backendHealthSnapshot && now - backendHealthCheckedAt < 15000) {
+    renderBackendStatus();
+    return backendHealthSnapshot;
+  }
+  if (!force && backendHealthPromise) return backendHealthPromise;
+
+  renderBackendStatus();
+  const backendUrl = getBackendUrl();
+  backendHealthPromise = fetch(`${backendUrl}/health`, { method: "GET" })
+    .then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      backendHealthSnapshot = {
+        ok: response.ok && data?.ok === true,
+        status: response.status,
+        data
+      };
+      backendHealthCheckedAt = Date.now();
+      renderBackendStatus();
+      return backendHealthSnapshot;
+    })
+    .catch((error) => {
+      backendHealthSnapshot = {
+        ok: false,
+        error: formatApiError(error.message || error)
+      };
+      backendHealthCheckedAt = Date.now();
+      renderBackendStatus();
+      return backendHealthSnapshot;
+    })
+    .finally(() => {
+      backendHealthPromise = null;
+    });
+  return backendHealthPromise;
+}
+
+async function refreshSsoLoginOptions(email = els.workEmail?.value?.trim().toLowerCase() || "") {
+  if (!els.ssoLoginBox || !els.ssoLoginStatus) return null;
+  hideSsoProviderButtons();
+  if (!email || !isValidEmail(email)) {
+    els.ssoLoginBox.hidden = false;
+    els.ssoLoginStatus.textContent = t("ssoCheckProviders");
+    return null;
+  }
+  try {
+    const data = await fetch(`${getBackendUrl()}/api/auth/sso/options?email=${encodeURIComponent(email)}`).then((response) => response.json());
+    const providers = Array.isArray(data.providers) ? data.providers : [];
+    state.workspace.sso = {
+      ...(state.workspace.sso || {}),
+      requireSso: data.requireSso === true,
+      allowEmailFallback: data.allowEmailFallback !== false,
+      providers: providers
+    };
+    els.ssoLoginBox.hidden = providers.length === 0;
+    if (!providers.length) {
+      els.ssoLoginStatus.textContent = t("ssoNotRequired");
+      return data;
+    }
+    els.ssoLoginStatus.textContent = data.requireSso && data.allowEmailFallback === false
+      ? t("ssoRequired")
+      : t("ssoAvailable");
+    providers.forEach((provider) => {
+      const button = provider.provider === "google" ? els.googleSsoButton : provider.provider === "microsoft" ? els.microsoftSsoButton : null;
+      if (!button) return;
+      button.hidden = false;
+      button.disabled = false;
+      button.textContent = provider.provider === "google" ? t("continueWithGoogle") : t("continueWithMicrosoft");
+    });
+    return data;
+  } catch (error) {
+    els.ssoLoginBox.hidden = false;
+    els.ssoLoginStatus.textContent = t("ssoLoadFailed", { error: formatApiError(error.message || error) });
+    return null;
+  }
+}
+
+function hideSsoProviderButtons() {
+  [els.googleSsoButton, els.microsoftSsoButton].forEach((button) => {
+    if (!button) return;
+    button.hidden = true;
+    button.disabled = false;
+  });
+}
+
+function startSsoLogin(providerId) {
+  const email = els.workEmail.value.trim().toLowerCase();
+  const params = new URLSearchParams({
+    redirectTo: window.location.href.split("#")[0]
+  });
+  if (email) params.set("emailHint", email);
+  window.location.href = `${getBackendUrl()}/api/auth/sso/${encodeURIComponent(providerId)}/start?${params.toString()}`;
 }
 
 function switchTab(tab) {
@@ -1151,21 +1722,40 @@ function switchTab(tab) {
 }
 
 function isAdminView() {
-  return state.workspace?.role !== "Employee";
+  return ["Superadmin", "Admin", "Manager", "Team Lead"].includes(state.workspace?.role || "");
+}
+
+function isSuperAdminView() {
+  return state.workspace?.role === "Superadmin";
 }
 
 function renderRoleUI() {
   const isAdmin = isAdminView();
-  els.roleViewSelect.value = isAdmin ? "Admin" : "Employee";
+  const isSuperAdmin = isSuperAdminView();
+  if ([...els.roleViewSelect.options].some((option) => option.value === (state.workspace?.role || ""))) {
+    els.roleViewSelect.value = state.workspace.role;
+  } else {
+    els.roleViewSelect.value = isAdmin ? "Admin" : "Employee";
+  }
   if (els.workspaceTabButton) {
     els.workspaceTabButton.hidden = true;
   }
-  els.newChatButton.hidden = !isAdmin;
+  els.newChatButton.hidden = false;
   const adminSections = document.querySelectorAll(".admin-settings-section");
   adminSections.forEach((section) => {
     section.hidden = !isAdmin;
   });
+  const superadminSections = document.querySelectorAll(".superadmin-settings-section");
+  superadminSections.forEach((section) => {
+    section.hidden = !isSuperAdmin;
+  });
+  if (els.settingsSuperadminEntry) {
+    els.settingsSuperadminEntry.hidden = !isSuperAdmin;
+  }
   if (!isAdmin && currentSettingsView === "admin") {
+    setSettingsView("home");
+  }
+  if (!isSuperAdmin && currentSettingsView === "superadmin") {
     setSettingsView("home");
   }
 }
@@ -1199,6 +1789,7 @@ function renderWorkspace() {
   els.workspaceDomain.value = state.workspace.domain;
   els.workspaceInviteLink.value = inviteLink;
   els.employeeJoinCode.value ||= state.workspace.inviteCode;
+  renderInviteRoleOptions();
   els.employeeCount.textContent = `${state.workspace.employees.length} ${state.workspace.employees.length === 1 ? "person" : "people"}`;
 
   els.employeeOptions.innerHTML = "";
@@ -1213,6 +1804,18 @@ function renderWorkspace() {
   state.workspace.employees.forEach((employee) => {
     const row = document.createElement("article");
     row.className = "employee-card";
+    const roleSelectMarkup = isSuperAdminView() ? `
+      <label class="employee-role-editor">
+        <span class="settings-detail-label">Access</span>
+        <select class="employee-role-select" data-employee-role="${escapeHtml(employee.id)}" ${employee.id === state.registration.user?.id ? "disabled" : ""}>
+          ${getSuperadminAssignableRoleOptions(employee.role).map((option) => `
+            <option value="${escapeHtml(option.value)}" ${option.selected ? "selected" : ""}>${escapeHtml(option.label)}</option>
+          `).join("")}
+        </select>
+      </label>
+      <button class="ghost-button employee-role-save" type="button" data-save-employee-role="${escapeHtml(employee.id)}" ${employee.id === state.registration.user?.id ? "disabled" : ""}>Save role</button>
+      <span class="helper-text employee-role-note">${employee.id === state.registration.user?.id ? "Superadmin role changes for your own account stay backend-protected." : "Promote or demote this member from the superadmin console."}</span>
+    ` : "";
     row.innerHTML = `
       <span class="employee-avatar">${escapeHtml(getInitials(employee.name))}</span>
       <div>
@@ -1222,6 +1825,7 @@ function renderWorkspace() {
       <span class="pill">${escapeHtml(employee.role || "Employee")}</span>
       <span class="pill ${employee.status === "invited" ? "pending-pill" : employee.available ? "available-pill" : "unavailable-pill"}">${employee.status === "invited" ? "Pending invite" : employee.available ? "Available" : "Unavailable"}</span>
       <button class="ghost-button availability-toggle" type="button">${employee.available ? "Mark away" : "Mark available"}</button>
+      ${roleSelectMarkup}
     `;
     row.addEventListener("click", () => openEmployeeChat(employee));
     row.querySelector(".availability-toggle").addEventListener("click", (event) => {
@@ -1230,17 +1834,345 @@ function renderWorkspace() {
       saveState();
       renderWorkspace();
     });
+    const saveRoleButton = row.querySelector(".employee-role-save");
+    const roleSelect = row.querySelector(".employee-role-select");
+    saveRoleButton?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      if (!roleSelect) return;
+      await saveEmployeeRole(employee, roleSelect.value, saveRoleButton, row);
+    });
+    roleSelect?.addEventListener("click", (event) => event.stopPropagation());
+    roleSelect?.addEventListener("change", () => {
+      const changed = normalizeRoleValue(roleSelect.value) !== normalizeRoleValue(employee.role);
+      if (saveRoleButton) {
+        saveRoleButton.textContent = changed ? "Save role" : "Saved";
+      }
+    });
     els.employeeList.append(row);
   });
 
   renderConnectedApps();
   renderCompanySoftware();
+  renderWorkspaceSso();
+  renderSuperadminPanel();
   renderBluPolicy();
   renderBluActions();
   renderSettingsProfile();
   renderSettingsConnect();
   renderSecuritySettings();
   renderAdminAudit();
+}
+
+function getGrantableWorkspaceRoles() {
+  const role = state.workspace?.role || "Employee";
+  if (role === "Superadmin") {
+    return ["employee", "manager", "team_lead", "admin"];
+  }
+  if (role === "Admin") {
+    return ["employee", "manager", "team_lead"];
+  }
+  if (role === "Manager" || role === "Team Lead") {
+    return ["employee"];
+  }
+  return [];
+}
+
+function getSuperadminAssignableRoleOptions(currentRole = "Employee") {
+  const currentValue = normalizeRoleValue(currentRole);
+  return [
+    { value: "employee", label: "Employee", selected: currentValue === "employee" },
+    { value: "manager", label: "Manager", selected: currentValue === "manager" },
+    { value: "team_lead", label: "Team Lead", selected: currentValue === "team_lead" },
+    { value: "admin", label: "Admin", selected: currentValue === "admin" }
+  ];
+}
+
+function normalizeRoleValue(value) {
+  const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (normalized === "super_admin") return "superadmin";
+  if (normalized === "team_lead" || normalized === "teamlead") return "team_lead";
+  return normalized || "employee";
+}
+
+function getRoleChangeWarning(employee, nextRole) {
+  const currentRole = normalizeRoleValue(employee?.role);
+  const normalizedNextRole = normalizeRoleValue(nextRole);
+  if (currentRole === normalizedNextRole) return null;
+
+  if (currentRole === "admin" && normalizedNextRole !== "admin") {
+    const adminCount = (state.workspace?.employees || []).filter((member) => normalizeRoleValue(member.role) === "admin").length;
+    if (adminCount <= 1) {
+      return {
+        requiresBackendConfirmation: true,
+        title: `Revoke the last admin in ${state.workspace?.name || "this workspace"}?`,
+        body: `${employee?.name || "This member"} is currently the last admin in the workspace. If you continue, they will lose admin access and become ${toDisplayRole(normalizedNextRole)}. Make sure another trusted person still has admin or superadmin access.`
+      };
+    }
+    return {
+      requiresBackendConfirmation: false,
+      title: `Demote ${employee?.name || "this admin"}?`,
+      body: `${employee?.name || "This member"} will lose admin access and become ${toDisplayRole(normalizedNextRole)} if you continue.`
+    };
+  }
+
+  if (currentRole === "manager" && normalizedNextRole !== "manager") {
+    return {
+      requiresBackendConfirmation: false,
+      title: `Demote ${employee?.name || "this manager"}?`,
+      body: `${employee?.name || "This member"} will lose manager access and become ${toDisplayRole(normalizedNextRole)} if you continue.`
+    };
+  }
+
+  if (currentRole === "team_lead" && normalizedNextRole !== "team_lead") {
+    return {
+      requiresBackendConfirmation: false,
+      title: `Demote ${employee?.name || "this team lead"}?`,
+      body: `${employee?.name || "This member"} will lose team lead access and become ${toDisplayRole(normalizedNextRole)} if you continue.`
+    };
+  }
+
+  return null;
+}
+
+function requestRoleChangeConfirmation(warning) {
+  return new Promise((resolve) => {
+    pendingRoleChangeConfirmation = resolve;
+    if (els.roleChangeConfirmTitle) {
+      els.roleChangeConfirmTitle.textContent = warning?.title || "Confirm role change?";
+    }
+    if (els.roleChangeConfirmBody) {
+      els.roleChangeConfirmBody.textContent = warning?.body || "This member's access will change if you continue.";
+    }
+    try {
+      els.roleChangeConfirmDialog?.showModal();
+    } catch {
+      els.roleChangeConfirmDialog?.show();
+    }
+  });
+}
+
+function resolveRoleChangeConfirmation(confirmed) {
+  const resolver = pendingRoleChangeConfirmation;
+  pendingRoleChangeConfirmation = null;
+  try {
+    els.roleChangeConfirmDialog?.close();
+  } catch {
+    els.roleChangeConfirmDialog?.removeAttribute("open");
+  }
+  if (typeof resolver === "function") {
+    resolver(Boolean(confirmed));
+  }
+}
+
+async function saveEmployeeRole(employee, nextRole, button, row) {
+  if (!employee?.id || !getAuthToken()) return;
+  const normalizedNextRole = normalizeRoleValue(nextRole);
+  const currentRole = normalizeRoleValue(employee.role);
+  if (normalizedNextRole === currentRole) {
+    if (button) button.textContent = "Saved";
+    return;
+  }
+  const warning = getRoleChangeWarning(employee, normalizedNextRole);
+  let confirmedLastAdminDemotion = false;
+  if (warning) {
+    const confirmed = await requestRoleChangeConfirmation(warning);
+    if (!confirmed) {
+      if (button) button.textContent = "Save role";
+      const roleSelect = row?.querySelector(".employee-role-select");
+      if (roleSelect) {
+        roleSelect.value = currentRole;
+      }
+      return;
+    }
+    confirmedLastAdminDemotion = warning.requiresBackendConfirmation === true;
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Saving...";
+  }
+  try {
+    const data = await apiFetch(`/api/workspaces/members/${encodeURIComponent(employee.id)}/role`, {
+      method: "PATCH",
+      body: {
+        role: normalizedNextRole,
+        confirmLastAdminDemotion: confirmedLastAdminDemotion
+      }
+    });
+    const updatedMember = data.member ? mapBackendMember(data.member) : { ...employee, role: toDisplayRole(normalizedNextRole) };
+    upsertWorkspaceEmployee(updatedMember);
+    saveState();
+    renderWorkspace();
+  } catch (error) {
+    const note = row?.querySelector(".employee-role-note");
+    if (note) {
+      note.textContent = formatApiError(error.message || error);
+    }
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Retry";
+    }
+  }
+}
+
+function renderInviteRoleOptions() {
+  if (!els.workspaceInviteRole) return;
+  const options = [
+    { value: "employee", label: "Employee" },
+    { value: "manager", label: "Manager" },
+    { value: "team_lead", label: "Team lead" },
+    { value: "admin", label: "Admin" }
+  ];
+  const grantableRoles = getGrantableWorkspaceRoles();
+  const currentValue = grantableRoles.includes(els.workspaceInviteRole.value) ? els.workspaceInviteRole.value : grantableRoles[0] || "employee";
+
+  els.workspaceInviteRole.innerHTML = "";
+  options
+    .filter((option) => grantableRoles.includes(option.value))
+    .forEach((option) => {
+      const element = document.createElement("option");
+      element.value = option.value;
+      element.textContent = option.label;
+      els.workspaceInviteRole.append(element);
+    });
+
+  els.workspaceInviteRole.disabled = grantableRoles.length === 0;
+  els.regenerateInviteButton.disabled = grantableRoles.length === 0;
+  if (grantableRoles.length) {
+    els.workspaceInviteRole.value = currentValue;
+  }
+  if (els.workspaceInviteStatus) {
+    if (state.workspace?.role === "Superadmin") {
+      els.workspaceInviteStatus.textContent = "Superadmin can grant employee, manager, team lead, and admin access.";
+    } else if (state.workspace?.role === "Admin") {
+      els.workspaceInviteStatus.textContent = "Admins can invite employees, managers, and team leads. Admin access is reserved for superadmin.";
+    } else if (state.workspace?.role === "Manager" || state.workspace?.role === "Team Lead") {
+      els.workspaceInviteStatus.textContent = "This role can invite employees only.";
+    } else {
+      els.workspaceInviteStatus.textContent = "Only workspace leadership can send invites.";
+    }
+  }
+}
+
+function renderWorkspaceSso() {
+  normalizeWorkspace();
+  const sso = state.workspace.sso || {};
+  const providers = Array.isArray(sso.providers) ? sso.providers : [];
+  const google = providers.find((provider) => provider.provider === "google") || {};
+  const microsoft = providers.find((provider) => provider.provider === "microsoft") || {};
+
+  if (els.workspaceRequireSso) els.workspaceRequireSso.checked = sso.requireSso === true;
+  if (els.workspaceAllowEmailFallback) els.workspaceAllowEmailFallback.checked = sso.allowEmailFallback !== false;
+  if (els.workspaceGoogleSsoEnabled) els.workspaceGoogleSsoEnabled.checked = google.enabled === true;
+  if (els.workspaceGoogleDomainHint) els.workspaceGoogleDomainHint.value = google.domainHint || state.workspace.domain || "";
+  if (els.workspaceMicrosoftSsoEnabled) els.workspaceMicrosoftSsoEnabled.checked = microsoft.enabled === true;
+  if (els.workspaceMicrosoftTenantHint) els.workspaceMicrosoftTenantHint.value = microsoft.tenantHint || "common";
+  if (els.workspaceGoogleSsoMeta) {
+    els.workspaceGoogleSsoMeta.textContent = google.configured
+      ? "Google client credentials are configured on the backend."
+      : "Add GOOGLE_SSO_CLIENT_ID and GOOGLE_SSO_CLIENT_SECRET on the backend.";
+  }
+  if (els.workspaceMicrosoftSsoMeta) {
+    els.workspaceMicrosoftSsoMeta.textContent = microsoft.configured
+      ? "Microsoft client credentials are configured on the backend."
+      : "Add MICROSOFT_SSO_CLIENT_ID and MICROSOFT_SSO_CLIENT_SECRET on the backend.";
+  }
+  if (els.workspaceSsoStatus) {
+    const enabledCount = providers.filter((provider) => provider.enabled && provider.configured).length;
+    els.workspaceSsoStatus.textContent = enabledCount
+      ? `${enabledCount} Team SSO provider${enabledCount === 1 ? "" : "s"} ready for this workspace.`
+      : "Team SSO is optional until you enable and configure a provider.";
+  }
+}
+
+function renderSuperadminPanel() {
+  if (!isSuperAdminView()) return;
+  if (els.superadminFrontendUrl) {
+    els.superadminFrontendUrl.textContent = window.location.origin === "null"
+      ? window.location.href.split("#")[0]
+      : `${window.location.origin}${window.location.pathname}`;
+  }
+  if (els.superadminBackendUrl) {
+    els.superadminBackendUrl.textContent = getBackendUrl();
+  }
+
+  const providers = Array.isArray(state.workspace?.sso?.providers) ? state.workspace.sso.providers : [];
+  const google = providers.find((provider) => provider.provider === "google") || {};
+  const microsoft = providers.find((provider) => provider.provider === "microsoft") || {};
+
+  if (els.superadminGoogleStatus) {
+    els.superadminGoogleStatus.textContent = google.configured
+      ? (google.enabled ? "Configured and enabled" : "Configured but disabled")
+      : "Not configured";
+  }
+  if (els.superadminGoogleHint) {
+    els.superadminGoogleHint.textContent = google.domainHint
+      ? `Workspace domain hint: ${google.domainHint}`
+      : "No Google Workspace domain hint is set yet.";
+  }
+  if (els.superadminMicrosoftStatus) {
+    els.superadminMicrosoftStatus.textContent = microsoft.configured
+      ? (microsoft.enabled ? "Configured and enabled" : "Configured but disabled")
+      : "Not configured";
+  }
+  if (els.superadminMicrosoftHint) {
+    els.superadminMicrosoftHint.textContent = microsoft.tenantHint
+      ? `Tenant hint: ${microsoft.tenantHint}`
+      : "No Microsoft tenant hint is set yet.";
+  }
+}
+
+async function saveWorkspaceSsoSettings() {
+  const payload = {
+    requireSso: els.workspaceRequireSso?.checked === true,
+    allowEmailFallback: els.workspaceAllowEmailFallback?.checked !== false,
+    providers: [
+      {
+        provider: "google",
+        enabled: els.workspaceGoogleSsoEnabled?.checked === true,
+        domainHint: normalizeDomain(els.workspaceGoogleDomainHint?.value || state.workspace.domain || "")
+      },
+      {
+        provider: "microsoft",
+        enabled: els.workspaceMicrosoftSsoEnabled?.checked === true,
+        tenantHint: String(els.workspaceMicrosoftTenantHint?.value || "common").trim()
+      }
+    ]
+  };
+  state.workspace.sso = {
+    ...state.workspace.sso,
+    ...payload,
+    providers: payload.providers.map((provider) => ({
+      ...provider,
+      name: provider.provider === "google" ? "Google Workspace" : "Microsoft",
+      configured: (state.workspace.sso?.providers || []).find((item) => item.provider === provider.provider)?.configured === true
+    }))
+  };
+  saveState();
+  renderWorkspaceSso();
+  if (!getAuthToken()) {
+    if (els.workspaceSsoStatus) {
+      els.workspaceSsoStatus.textContent = "Team SSO saved locally. Sign in to sync this workspace policy to the backend.";
+    }
+    return;
+  }
+  try {
+    const data = await apiFetch("/api/workspaces/sso", {
+      method: "PATCH",
+      body: payload
+    });
+    if (data.sso) {
+      state.workspace.sso = data.sso;
+      saveState();
+      renderWorkspaceSso();
+    }
+    if (els.workspaceSsoStatus) {
+      els.workspaceSsoStatus.textContent = "Team SSO settings saved.";
+    }
+  } catch (error) {
+    if (els.workspaceSsoStatus) {
+      els.workspaceSsoStatus.textContent = `Could not save Team SSO settings. ${formatApiError(error.message || error)}`;
+    }
+  }
 }
 
 function renderSettingsProfile() {
@@ -1324,7 +2256,8 @@ function getSettingsViewTitle(view) {
     notifications: "Notifications",
     storage: "Storage and data",
     apps: "Connected apps",
-    admin: "Workspace admin"
+    admin: "Workspace admin",
+    superadmin: "Superadmin"
   };
   return titles[view] || "Settings";
 }
@@ -1591,8 +2524,8 @@ async function rotateConversationKeyForMembershipChange(conversationId, memberSi
 }
 
 async function revokeSessionFromSettings(scope) {
-  if (!getAuthToken()) return;
   const isAll = scope === "all";
+  const hasToken = Boolean(getAuthToken());
   const confirmed = window.confirm(
     isAll
       ? "Log out from all devices and revoke every active session?"
@@ -1600,9 +2533,18 @@ async function revokeSessionFromSettings(scope) {
   );
   if (!confirmed) return;
 
+  if (!hasToken) {
+    await completeLocalSignOut("This device was signed out.");
+    return;
+  }
+
   try {
     await apiFetch(isAll ? "/api/auth/logout-all" : "/api/auth/logout", { method: "POST" });
   } catch (error) {
+    if (!isAll) {
+      await completeLocalSignOut("This device was signed out locally. Backend session revocation could not be confirmed.");
+      return;
+    }
     if (els.settingsSessionStatus) {
       els.settingsSessionStatus.textContent = `Could not revoke the session. ${formatApiError(error.message || error)}`;
     }
@@ -1613,6 +2555,7 @@ async function revokeSessionFromSettings(scope) {
 }
 
 async function completeLocalSignOut(statusText = "Signed out.") {
+  closeAllOpenDialogs();
   if (realtimeSocket) {
     try {
       realtimeSocket.close();
@@ -1621,9 +2564,14 @@ async function completeLocalSignOut(statusText = "Signed out.") {
   }
   state.registration.sessionToken = "";
   state.registration.user = null;
+  state.registration.pendingEmail = "";
   state.registration.step = "email";
   state.registration.pendingCode = "";
   state.registration.demoCode = "";
+  state.registration.errorMessage = "";
+  currentView = "home";
+  currentSettingsView = "home";
+  activeReplyMessage = null;
   linkedDevices = [];
   adminAuditEvents = [];
   saveState();
@@ -1632,7 +2580,16 @@ async function completeLocalSignOut(statusText = "Signed out.") {
   if (els.settingsSessionStatus) {
     els.settingsSessionStatus.textContent = statusText;
   }
-  els.settingsDialog?.close();
+}
+
+function closeAllOpenDialogs() {
+  document.querySelectorAll("dialog[open]").forEach((dialog) => {
+    try {
+      dialog.close();
+    } catch {
+      dialog.removeAttribute("open");
+    }
+  });
 }
 
 async function revokeLinkedDevice(device, isCurrent = false) {
@@ -1734,10 +2691,63 @@ function renderBluActions() {
   normalizeBluAgent();
   const actions = state.bluAgent.actions;
   const pending = actions.filter((action) => action.status === "pending").length;
-  els.bluActionCount.textContent = `${pending} pending`;
-  els.bluActionList.innerHTML = "";
+  const completed = actions.filter((action) => action.status === "completed").length;
+  const rejected = actions.filter((action) => action.status === "rejected").length;
+  const countText = `${pending} pending · ${completed} done${rejected ? ` · ${rejected} rejected` : ""}`;
+  if (els.bluActionCount) els.bluActionCount.textContent = countText;
+  if (els.mainBluActionCount) els.mainBluActionCount.textContent = countText;
+  if (els.approveAllBluActionsButton) els.approveAllBluActionsButton.disabled = pending === 0;
+  if (els.mainApproveAllBluActionsButton) els.mainApproveAllBluActionsButton.disabled = pending === 0;
+  renderBluActionListInto(els.bluActionList, actions, "Blu actions will appear here when Blu suggests work.");
+  renderConversationAwareBluActionList(els.mainBluActionList, actions);
+  renderMainBluIntegrationStatus();
+}
+
+function renderConversationAwareBluActionList(container, actions) {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!Array.isArray(actions) || !actions.length) {
+    container.innerHTML = `<p class="helper-text">Use Blu in chat to generate actions and approvals here.</p>`;
+    return;
+  }
+
+  const activeConversationId = state.activeId || "";
+  const currentChatActions = activeConversationId
+    ? actions.filter((action) => String(action.conversationId || "") === activeConversationId)
+    : [];
+  const otherActions = activeConversationId
+    ? actions.filter((action) => String(action.conversationId || "") !== activeConversationId)
+    : actions.slice();
+
+  if (currentChatActions.length) {
+    container.append(createBluActionSection("This chat", currentChatActions.slice(0, 8), "Actions tied to the conversation you have open."));
+  }
+  if (otherActions.length) {
+    container.append(createBluActionSection(currentChatActions.length ? "Other actions" : "Recent actions", otherActions.slice(0, 8), currentChatActions.length ? "Everything else in your workspace queue." : "Recent Blu work across your workspace."));
+  }
+}
+
+function createBluActionSection(title, actions, description) {
+  const section = document.createElement("section");
+  section.className = "blu-action-group";
+  section.innerHTML = `
+    <div class="blu-action-group-header">
+      <strong>${escapeHtml(title)}</strong>
+      ${description ? `<span>${escapeHtml(description)}</span>` : ""}
+    </div>
+  `;
+  const list = document.createElement("div");
+  list.className = "blu-action-group-list";
+  renderBluActionListInto(list, actions, "No Blu actions here yet.");
+  section.append(list);
+  return section;
+}
+
+function renderBluActionListInto(container, actions, emptyMessage) {
+  if (!container) return;
+  container.innerHTML = "";
   if (!actions.length) {
-    els.bluActionList.innerHTML = `<p class="helper-text">Blu actions will appear here when Blu suggests work.</p>`;
+    container.innerHTML = `<p class="helper-text">${escapeHtml(emptyMessage)}</p>`;
     return;
   }
 
@@ -1752,17 +2762,37 @@ function renderBluActions() {
         <div class="inline-task-meta">
           <span>${escapeHtml(action.assignee || "Me")}</span>
           ${action.due ? `<span>Due ${escapeHtml(formatDate(action.due))}</span>` : ""}
+          ${action.provider ? `<span>${escapeHtml(formatProviderName(action.provider))}</span>` : ""}
           <span>${escapeHtml(action.status || "pending")}</span>
         </div>
       </div>
       <menu>
-        ${action.status === "pending" ? `<button class="primary-button" type="button" data-action="approve">Approve</button><button class="ghost-button" type="button" data-action="reject">Reject</button>` : `<span class="helper-text">${escapeHtml(action.status)}</span>`}
+        ${action.status === "pending"
+          ? `<button class="primary-button" type="button" data-action="approve">Approve</button><button class="ghost-button" type="button" data-action="reject">Reject</button>`
+          : `<span class="helper-text">${escapeHtml(action.status)}</span>`}
       </menu>
     `;
     card.querySelector('[data-action="approve"]')?.addEventListener("click", () => updateBluActionStatus(action, "approved"));
     card.querySelector('[data-action="reject"]')?.addEventListener("click", () => updateBluActionStatus(action, "rejected"));
-    els.bluActionList.append(card);
+    container.append(card);
   });
+}
+
+function renderMainBluIntegrationStatus() {
+  const googleCalendarApp = getConnectedAppById("google-calendar");
+  if (els.mainBluCalendarStatus) {
+    if (!googleCalendarApp?.configured) {
+      els.mainBluCalendarStatus.textContent = "OAuth not configured yet.";
+    } else if (googleCalendarApp.connected) {
+      els.mainBluCalendarStatus.textContent = "Connected for approved events.";
+    } else {
+      els.mainBluCalendarStatus.textContent = "Not connected yet.";
+    }
+  }
+  if (els.connectGoogleCalendarButton) {
+    els.connectGoogleCalendarButton.textContent = googleCalendarApp?.connected ? "Calendar connected" : "Connect calendar";
+    els.connectGoogleCalendarButton.disabled = Boolean(googleCalendarApp?.connected) || !Boolean(googleCalendarApp?.configured);
+  }
 }
 
 function openEmployeeChat(employee) {
@@ -1888,10 +2918,10 @@ async function renderActiveChat() {
       ${renderReactionPicker(message)}
       <footer class="message-footer">
         <span class="message-actions">
-          <button class="message-reply-button" type="button">Reply</button>
-          ${isTaskCard || isAgentPlan ? "" : `<button class="message-task-button" type="button">Add task</button>`}
-          <button class="message-forward-button" type="button">Forward</button>
-          <button class="message-react-button" type="button">React</button>
+          <button class="message-reply-button" type="button" aria-label="Reply" title="Reply">&#8617;</button>
+          ${isTaskCard || isAgentPlan ? "" : `<button class="message-task-button" type="button" aria-label="Add task" title="Add task">&#10003;</button>`}
+          <button class="message-forward-button" type="button" aria-label="Forward" title="Forward">&#10150;</button>
+          <button class="message-react-button" type="button" aria-label="React" title="React">&#9786;</button>
         </span>
         <span class="meta">${escapeHtml(message.time)}${renderReadReceipt(message)}</span>
       </footer>
@@ -2154,25 +3184,10 @@ async function approveAgentAction(message, actionId) {
   if (!action || action.status !== "pending") return;
 
   try {
-    if (action.type === "create_task" || action.type === "schedule_reminder") {
-      await createTaskWithFeedback({
-        title: action.title,
-        due: action.due || "",
-        priority: action.priority || "normal",
-        assignee: action.assignee || "Me",
-        reminderAt: action.reminderAt || "",
-        source: "Blu agent"
-      });
-    } else if (action.type === "draft_reply") {
-      els.messageInput.value = action.title || "";
-      els.messageInput.focus();
-    } else if (action.type === "sync_external") {
-      await addMessage(`Blu prepared external sync: ${action.title}`, "me");
-    }
-
+    await executeBluAction(action, "Blu agent");
     action.status = "approved";
     await recordAgentAudit("action.approved", action);
-    await syncBluActionStatus(action, action.type === "create_task" || action.type === "schedule_reminder" ? "completed" : "approved");
+    await syncBluActionStatus(action, shouldCompleteBluActionImmediately(action) ? "completed" : "approved");
   } catch (error) {
     action.status = "failed";
     await recordAgentAudit("action.failed", action, formatApiError(error.message || error));
@@ -2392,6 +3407,57 @@ function renderConnectedApps() {
   if (els.mcpManifest) {
     els.mcpManifest.value = JSON.stringify(createMcpManifest(), null, 2);
   }
+  renderMainBluIntegrationStatus();
+}
+
+function getConnectedAppById(appId) {
+  return state.connectedApps.find((app) => app.id === appId) || null;
+}
+
+function getConnectedAppByProvider(providerId) {
+  return state.connectedApps.find((app) => app.provider === providerId) || null;
+}
+
+function formatProviderName(providerId) {
+  return {
+    google_calendar: "Google Calendar",
+    gmail: "Gmail",
+    asana: "Asana",
+    jira: "Jira"
+  }[providerId] || providerId.replace(/_/g, " ");
+}
+
+function connectExternalApp(appId) {
+  const app = getConnectedAppById(appId);
+  if (!app) return;
+  if (app.provider && !app.connected) {
+    const params = new URLSearchParams();
+    params.set("userId", getUserId());
+    if (getAuthToken()) params.set("token", getAuthToken());
+    window.open(`${getBackendUrl()}${app.endpoint}?${params.toString()}`, "_blank", "noopener,noreferrer");
+    if (els.bluVoiceStatus) {
+      els.bluVoiceStatus.textContent = `Opening ${app.name} connection in a new tab. Complete OAuth, then refresh Blu actions.`;
+    }
+    return;
+  }
+}
+
+async function syncConnectedAppsFromBackend() {
+  if (!getAuthToken()) return;
+  try {
+    const integrations = await apiFetch("/api/integrations");
+    state.connectedApps = state.connectedApps.map((app) => {
+      if (!app.provider) return app;
+      const providerState = integrations?.[app.provider] || {};
+      return {
+        ...app,
+        configured: providerState.configured === true,
+        connected: providerState.connected === true
+      };
+    });
+  } catch (error) {
+    console.warn("Connected apps sync unavailable:", error);
+  }
 }
 
 async function syncBluAgentFromBackend() {
@@ -2403,7 +3469,8 @@ async function syncBluAgentFromBackend() {
   try {
     const [actionsData, policyData] = await Promise.all([
       apiFetch("/api/agent/actions"),
-      apiFetch("/api/agent/policy")
+      apiFetch("/api/agent/policy"),
+      syncConnectedAppsFromBackend()
     ]);
     state.bluAgent.actions = Array.isArray(actionsData.actions) ? actionsData.actions : state.bluAgent.actions;
     state.bluAgent.policy = policyData.policy || state.bluAgent.policy;
@@ -2450,16 +3517,18 @@ async function updateBluActionStatus(action, status) {
   action.status = status;
   saveState();
   renderBluActions();
-  if (status === "approved" && (action.type === "create_task" || action.type === "schedule_reminder")) {
-    await createTaskWithFeedback({
-      title: action.title,
-      due: action.due || "",
-      priority: action.priority || "normal",
-      assignee: action.assignee || "Me",
-      reminderAt: action.reminderAt || "",
-      source: "Blu Actions panel"
-    });
-    action.status = "completed";
+  if (status === "approved") {
+    try {
+      await executeBluAction(action, "Blu Actions panel");
+      if (shouldCompleteBluActionImmediately(action)) {
+        action.status = "completed";
+      }
+    } catch (error) {
+      action.status = "failed";
+      if (els.bluVoiceStatus) {
+        els.bluVoiceStatus.textContent = formatApiError(error.message || error);
+      }
+    }
   }
 
   if (getAuthToken() && action.id) {
@@ -2475,6 +3544,131 @@ async function updateBluActionStatus(action, status) {
   }
   saveState();
   renderBluActions();
+}
+
+function shouldCompleteBluActionImmediately(action) {
+  return ["create_task", "schedule_reminder", "sync_external"].includes(action.type);
+}
+
+async function executeBluAction(action, sourceLabel) {
+  if (action.type === "create_task" || action.type === "schedule_reminder") {
+    await createTaskWithFeedback({
+      title: action.title,
+      due: action.due || "",
+      priority: action.priority || "normal",
+      assignee: action.assignee || "Me",
+      reminderAt: action.reminderAt || "",
+      source: sourceLabel
+    });
+    return;
+  }
+
+  if (action.type === "draft_reply") {
+    els.messageInput.value = action.title || "";
+    els.messageInput.focus();
+    return;
+  }
+
+  if (action.type === "sync_external") {
+    await executeExternalBluSync(action);
+  }
+}
+
+async function executeExternalBluSync(action) {
+  const provider = action.provider || inferBluExternalProvider(action);
+  if (provider !== "google_calendar") {
+    throw new Error("This Blu external action is not wired yet.");
+  }
+
+  const googleCalendarApp = getConnectedAppByProvider("google_calendar");
+  if (!googleCalendarApp?.configured) {
+    throw new Error("Google Calendar OAuth is not configured on the backend yet.");
+  }
+  if (!googleCalendarApp.connected) {
+    throw new Error("Connect Google Calendar first so Blu can create approved events.");
+  }
+
+  await apiFetch("/api/sync/google-calendar/event", {
+    method: "POST",
+    body: {
+      title: action.title,
+      due: action.due || new Date().toISOString(),
+      reason: action.reason || "Approved by Blu in TodoMessenger.",
+      durationMinutes: 30
+    }
+  });
+
+  await addMessage(`Blu added this to Google Calendar: ${action.title}`, "them");
+}
+
+function inferBluExternalProvider(action) {
+  const combined = `${action.title || ""} ${action.reason || ""}`.toLowerCase();
+  if (/calendar|event|meeting|schedule/.test(combined)) {
+    return "google_calendar";
+  }
+  return "";
+}
+
+async function approveAllPendingBluActions() {
+  const pendingActions = state.bluAgent.actions.filter((action) => action.status === "pending");
+  if (!pendingActions.length) return;
+  if (els.bluPolicyStatus) {
+    els.bluPolicyStatus.textContent = `Approving ${pendingActions.length} pending Blu action${pendingActions.length === 1 ? "" : "s"}...`;
+  }
+  for (const action of pendingActions) {
+    await updateBluActionStatus(action, "approved");
+  }
+  if (els.bluPolicyStatus) {
+    els.bluPolicyStatus.textContent = `Blu completed ${pendingActions.length} action${pendingActions.length === 1 ? "" : "s"} from the pending queue.`;
+  }
+}
+
+async function speakTodayPendingTasks() {
+  const todayTasks = state.tasks.filter((task) => !task.done && task.due === todayIso);
+  const openTasks = state.tasks.filter((task) => !task.done);
+  const summary = todayTasks.length
+    ? `You have ${todayTasks.length} task${todayTasks.length === 1 ? "" : "s"} due today. ${todayTasks.map((task, index) => `Task ${index + 1}: ${task.title}${task.assignee ? `, assigned to ${formatTaskAssignees(task)}` : ""}.`).join(" ")}`
+    : openTasks.length
+      ? `You have ${openTasks.length} open task${openTasks.length === 1 ? "" : "s"} and nothing due today.`
+      : "You have no open tasks right now.";
+
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    if (els.bluVoiceStatus) {
+      els.bluVoiceStatus.textContent = "Voice playback is not supported in this browser.";
+    }
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(summary);
+  utterance.lang = mapLocaleToSpeechLanguage(getUserLocale());
+  utterance.rate = 0.98;
+  utterance.pitch = 1;
+  utterance.onstart = () => {
+    if (els.bluVoiceStatus) {
+      els.bluVoiceStatus.textContent = todayTasks.length
+        ? `Reading ${todayTasks.length} pending task${todayTasks.length === 1 ? "" : "s"} for today.`
+        : "Reading your current task summary.";
+    }
+  };
+  utterance.onend = () => {
+    if (els.bluVoiceStatus) {
+      els.bluVoiceStatus.textContent = "Ready to read today's pending tasks.";
+    }
+  };
+  utterance.onerror = () => {
+    if (els.bluVoiceStatus) {
+      els.bluVoiceStatus.textContent = "Blu could not read tasks aloud on this device.";
+    }
+  };
+  window.speechSynthesis.speak(utterance);
+}
+
+function mapLocaleToSpeechLanguage(locale) {
+  const normalized = String(locale || "").toLowerCase();
+  if (normalized.startsWith("fr")) return "fr-FR";
+  if (normalized.startsWith("es")) return "es-ES";
+  return "en-US";
 }
 
 function createMcpManifest() {
@@ -2495,15 +3689,128 @@ function createMcpManifest() {
 function getBackendUrl() {
   const override = localStorage.getItem("taskchat-backend-url");
   if (override) return override;
-  if (window.location.protocol === "file:") return "http://localhost:8787";
+  if (window.location.protocol === "file:") return "https://todomessenger-backend.onrender.com";
   return (
     window.TODOMESSENGER_CONFIG?.backendUrl ||
-    "http://localhost:8787"
+    "https://todomessenger-backend.onrender.com"
   );
 }
 
 function getAuthToken() {
   return state.registration?.sessionToken || "";
+}
+
+function getUserLocale() {
+  const saved = localStorage.getItem("todomessenger-locale");
+  if (saved) return saved;
+  return navigator.language || "en-US";
+}
+
+function getLocaleBase(locale = getUserLocale()) {
+  return String(locale || "en").toLowerCase().split("-")[0] || "en";
+}
+
+function getMessages(locale = getUserLocale()) {
+  return i18nCatalog[getLocaleBase(locale)] || i18nCatalog.en;
+}
+
+function t(key, vars = {}, locale = getUserLocale()) {
+  const messages = getMessages(locale);
+  const template = messages[key] || i18nCatalog.en[key] || key;
+  return String(template).replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? ""));
+}
+
+function setText(selector, key, vars = {}) {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = t(key, vars);
+}
+
+function setPlaceholder(selector, key, vars = {}) {
+  const element = document.querySelector(selector);
+  if (element) element.placeholder = t(key, vars);
+}
+
+function applyTranslations() {
+  document.documentElement.lang = getUserLocale();
+  const registrationEyebrow = document.querySelector(".registration-header .eyebrow");
+  if (registrationEyebrow) registrationEyebrow.textContent = "TodoMessenger";
+  setText(".registration-steps li[data-step-dot='email']", "stepEmail");
+  setText(".registration-steps li[data-step-dot='verify']", "stepVerify");
+  setText(".registration-steps li[data-step-dot='profile']", "stepProfile");
+  setText("#emailForm label[for='workEmail']", "workEmail");
+  setText("#ssoLoginBox strong", "companySignIn");
+  setText("#emailForm .primary-button", "next");
+  setText("#verifyForm label[for='emailCode']", "emailCode");
+  setPlaceholder("#emailCode", "emailCode");
+  setText("#verifyForm .primary-button", "verifyEmail");
+  setText("#resendEmailCodeButton", "resendCode");
+  setText("#editEmailButton", "editEmail");
+  setText("#profileForm label[for='profileName']", "yourName");
+  setPlaceholder("#profileName", "yourDisplayName");
+  setText("#profileForm label[for='profileAbout']", "about");
+  setPlaceholder("#profileAbout", "available");
+  setText("#profileForm .primary-button", "startMessaging");
+  setText("#chatsTabButton", "chats");
+  setText("#tasksTabButton", "tasks");
+  setText(".search-box span", "search");
+  setPlaceholder("#chatSearch", "searchChatsPlaceholder");
+  setText(".task-header .eyebrow", "toDo");
+  setText(".task-header h2", "tasks");
+  setText("#taskFilter option[value='open']", "open");
+  setText("#taskFilter option[value='today']", "dueToday");
+  setText("#taskFilter option[value='all']", "all");
+  setText("#taskFilter option[value='done']", "done");
+  setText(".quick-stats div:nth-child(1) span", "openTasks");
+  setText(".quick-stats div:nth-child(2) span", "dueToday");
+  setText(".quick-stats div:nth-child(3) span", "reminders");
+  setText(".notification-panel strong", "taskReminders");
+  setText("#notificationButton", "enableNotifications");
+  setText("#taskForm label[for='taskTitle']", "task");
+  setPlaceholder("#taskTitle", "addTaskForChat");
+  setText("#taskForm label[for='taskAssignee']", "assignTo");
+  setPlaceholder("#taskAssignee", "assignPlaceholder");
+  setText("#taskForm .helper-text", "multiAssignHelp");
+  setText("#taskForm label[for='taskPriority']", "priority");
+  setText("#taskPriority option[value='normal']", "normal");
+  setText("#taskPriority option[value='high']", "high");
+  setText("#taskPriority option[value='low']", "low");
+  setText("#taskForm label[for='taskReminderAt']", "reminder");
+  setText("#taskForm .primary-button", "addTask");
+  setText("#suggestTasksButton", "bluOrganize");
+  setText(".ai-task-box .helper-text", "bluOrganizeHelp");
+  setText("#showPinnedTasks", "tasksMenu");
+  setText("#disappearingMessagesButton", "disappearingMessages");
+  setText("#importWorkAppButton", "importFromApps");
+  setText("#inviteButton", "inviteContact");
+  setText("#openSettingsMenuButton", "settings");
+  setText("#menuLogoutButton", "logOut");
+  setText(".media-tray-header strong", "media");
+  setText(".media-tab[data-media-tab='emoji']", "emoji");
+  setText(".media-tab[data-media-tab='gifs']", "gifs");
+  setText(".media-tab[data-media-tab='stickers']", "stickers");
+  setPlaceholder("#mediaSearchInput", "searchMediaPlaceholder");
+  setText("#quickTaskButton", "task");
+  setPlaceholder("#messageInput", "messagePlaceholder");
+  setText(".send-button", "send");
+  setText("#newChatForm h2", "newChat");
+  setText("#newChatForm label[for='newChatName']", "name");
+  setText("#newChatForm label[for='newChatStatus']", "status");
+  setText("#cancelNewChat", "cancel");
+  setText("#newChatForm .primary-button", "createChat");
+  setText("#startDirectChatButton", "newChat");
+  setText("#startGroupChatButton", "newGroup");
+  setText("#quickTaskForm h2", "addTaskFromChat");
+}
+
+function openNewConversationDialog(type = "direct") {
+  const isGroup = type === "group";
+  els.composeMenuPanel.hidden = true;
+  if (els.newChatType) els.newChatType.value = isGroup ? "group" : "direct";
+  if (els.newChatDialogTitle) els.newChatDialogTitle.textContent = t(isGroup ? "newGroup" : "newChat");
+  if (els.submitNewChatButton) els.submitNewChatButton.textContent = t(isGroup ? "createGroup" : "createChat");
+  els.newChatStatus.placeholder = isGroup ? "planning launch, sprint room, project team" : "online, available, focused";
+  els.newChatDialog.showModal();
+  els.newChatName.focus();
 }
 
 async function apiFetch(path, options = {}) {
@@ -2531,6 +3838,7 @@ async function syncFromBackend() {
   if (!getAuthToken() || backendSyncInFlight) return;
   backendSyncInFlight = true;
   try {
+    await syncConnectedAppsFromBackend();
     const [profileData, conversationData, taskData, memberData, bluActionsData, bluPolicyData] = await Promise.all([
       apiFetch("/api/me"),
       apiFetch("/api/conversations"),
@@ -2551,6 +3859,9 @@ async function syncFromBackend() {
       state.workspace.id = profileData.workspace.id || state.workspace.id;
       state.workspace.name = profileData.workspace.name || state.workspace.name;
       state.workspace.domain = profileData.workspace.domain || state.workspace.domain;
+      if (profileData.workspace.sso) {
+        state.workspace.sso = profileData.workspace.sso;
+      }
     }
     if (Array.isArray(conversationData.conversations) && conversationData.conversations.length) {
       state.conversations = conversationData.conversations.map(mapBackendConversation);
@@ -2571,6 +3882,9 @@ async function syncFromBackend() {
         state.workspace.inviteCode = latestPendingInvite.inviteCode || latestPendingInvite.token || state.workspace.inviteCode;
         state.workspace.inviteLink = latestPendingInvite.inviteLink || "";
       }
+    }
+    if (memberData.sso) {
+      state.workspace.sso = memberData.sso;
     }
     if (Array.isArray(bluActionsData.actions)) {
       state.bluAgent.actions = bluActionsData.actions;
@@ -2743,6 +4057,13 @@ function formatNetworkError(error) {
   return message;
 }
 
+function formatSsoProviderName(providerId) {
+  return {
+    google: "Google Workspace",
+    microsoft: "Microsoft"
+  }[providerId] || "Team SSO";
+}
+
 function parseBluCommand(text) {
   const match = String(text || "").match(/^@\s*(blu|chatgpt)\b\s*(.*)$/i);
   if (!match) return null;
@@ -2773,7 +4094,8 @@ async function answerWithBlu(prompt) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: question,
-        context: await getRecentMessageContext(conversation)
+        context: await getRecentMessageContext(conversation),
+        locale: getUserLocale()
       })
     });
     const data = await response.json();
@@ -2810,8 +4132,10 @@ async function addBluAgentPlan(prompt, conversation) {
       method: "POST",
       body: {
         prompt,
+        conversationId: conversation.id,
         conversationName: conversation.name,
-        context: await getRecentMessageContext(conversation)
+        context: await getRecentMessageContext(conversation),
+        locale: getUserLocale()
       }
     });
     if (!Array.isArray(response.actions) || !response.actions.length) return;
@@ -2913,13 +4237,15 @@ async function persistBluTaskSuggestions(suggestions) {
   if (!Array.isArray(suggestions) || !suggestions.length) return [];
   normalizeBluAgent();
   const saved = [];
+  const conversationId = state.activeId || "";
 
   for (const suggestion of suggestions) {
     let action = {
       ...suggestion,
       type: "create_task",
       status: "pending",
-      source: "blu-summary"
+      source: "blu-summary",
+      conversationId
     };
     if (getAuthToken()) {
       try {
@@ -3201,13 +4527,9 @@ function extractTaskAssignee(text) {
 }
 
 function extractTaskDue(text) {
-  const source = String(text || "");
-  if (/\btomorrow\b/i.test(source)) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().slice(0, 10);
-  }
-
+  const source = String(text || "").trim();
+  const relativeDue = parseRelativeDueDate(source);
+  if (relativeDue) return relativeDue;
   const weekdayDue = extractWeekdayDue(source);
   if (weekdayDue) return weekdayDue;
 
@@ -3221,28 +4543,24 @@ function extractTaskDue(text) {
   const iso = source.match(/\b(\d{4}-\d{2}-\d{2})\b/);
   if (iso) return iso[1];
 
-  const monthMatch = source.match(/\b(?:by|due|before)?\s*(\d{1,2})\s*(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
-  if (!monthMatch) return "";
-  const monthIndex = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-    .findIndex((month) => monthMatch[2].toLowerCase().startsWith(month));
-  if (monthIndex < 0) return "";
-
-  const now = new Date();
-  let due = new Date(now.getFullYear(), monthIndex, Number(monthMatch[1]));
-  if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-    due = new Date(now.getFullYear() + 1, monthIndex, Number(monthMatch[1]));
-  }
-  return due.toISOString().slice(0, 10);
+  return extractMonthDayDue(source);
 }
 
 function extractWeekdayDue(text) {
-  const match = String(text || "").match(/\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i);
+  const match = String(text || "").match(/\b(next|this|before|by|on|ce|cet|cette|prochain|prochaine|este|esta|el|la|pr[oó]ximo|pr[oó]xima|n[aä]chsten?|diesen|diese|diesem|questo|questa|prossim[oa]|na|no|em)?\s*(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|lunes|martes|mi[eé]rcoles|jueves|viernes|s[áa]bado|domingo|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|luned[ìi]|marted[ìi]|mercoled[ìi]|gioved[ìi]|venerd[ìi]|sabato|domenica|segunda|ter[cç]a|quarta|quinta|sexta|s[áa]bado|domingo)\b/i);
   if (!match) return "";
-  const weekdays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-  const targetDay = weekdays.findIndex((day) => match[1].toLowerCase().startsWith(day));
-  if (targetDay < 0) return "";
+  const modifier = (match[1] || "").toLowerCase();
+  const targetDay = mapWeekdayTokenToIndex(match[2]);
+  if (targetDay == null) return "";
   const due = new Date();
-  const daysUntil = (targetDay - due.getDay() + 7) % 7;
+  let daysUntil = (targetDay - due.getDay() + 7) % 7;
+  if (/\bnext|prochain|prochaine|pr[oó]ximo|pr[oó]xima|n[aä]chsten?|prossim[oa]\b/i.test(modifier)) {
+    daysUntil = daysUntil === 0 ? 7 : daysUntil + 7;
+  } else if (/\bbefore|by\b/i.test(modifier)) {
+    daysUntil = daysUntil === 0 ? 0 : daysUntil;
+  } else if (/\bthis|ce|cet|cette|este|esta|diesen|diese|diesem|questo|questa\b/i.test(modifier) && daysUntil === 0) {
+    daysUntil = 0;
+  }
   due.setDate(due.getDate() + daysUntil);
   return due.toISOString().slice(0, 10);
 }
@@ -3263,17 +4581,106 @@ function extractDayOfMonthDue(text) {
   return due.toISOString().slice(0, 10);
 }
 
+function parseRelativeDueDate(text) {
+  const source = String(text || "");
+  const now = new Date();
+  if (/\b(today|aujourd'hui|hoy|heute|oggi|hoje|today eod|eod|end of day|cob|close of business|fin de journ[ée]e|antes del final del d[ií]a|fim do dia)\b/i.test(source)) {
+    return now.toISOString().slice(0, 10);
+  }
+  if (/\b(tomorrow|demain|ma[ñn]ana|morgen|domani|amanh[ãa])\b/i.test(source)) {
+    now.setDate(now.getDate() + 1);
+    return now.toISOString().slice(0, 10);
+  }
+  if (/\b(next week|semaine prochaine|pr[oó]xima semana|n[aä]chste woche|prossima settimana|pr[oó]xima semana)\b/i.test(source)) {
+    now.setDate(now.getDate() + 7);
+    return now.toISOString().slice(0, 10);
+  }
+  return "";
+}
+
+function mapWeekdayTokenToIndex(token) {
+  const normalized = String(token || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const map = {
+    sun: 0, sunday: 0, dimanche: 0, domingo: 0, sonntag: 0, domenica: 0,
+    mon: 1, monday: 1, lundi: 1, lunes: 1, montag: 1, lunedi: 1, segunda: 1,
+    tue: 2, tuesday: 2, mardi: 2, martes: 2, dienstag: 2, martedi: 2, terca: 2, terça: 2,
+    wed: 3, wednesday: 3, mercredi: 3, miercoles: 3, mittwoch: 3, mercoledi: 3, quarta: 3,
+    thu: 4, thursday: 4, jeudi: 4, jueves: 4, donnerstag: 4, giovedi: 4, quinta: 4,
+    fri: 5, friday: 5, vendredi: 5, viernes: 5, freitag: 5, venerdi: 5, sexta: 5,
+    sat: 6, saturday: 6, samedi: 6, sabado: 6, samstag: 6, sabato: 6
+  };
+  return map[normalized];
+}
+
+function extractMonthDayDue(text) {
+  const source = String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const match = source.match(/\b(?:by|due|before|on|para|avant|antes de|entro il|ate|at[eé])?\s*(\d{1,2})\s*(?:st|nd|rd|th|er|o|a)?\s+(jan(?:uary|viero)?|feb(?:ruary|rero|braio|vrier)?|mar(?:ch|zo)?|apr(?:il|ile)?|may|mai|mayo|jun(?:e|io)?|jul(?:y|io)?|aug(?:ust|osto)?|sep(?:t(?:ember)?|tiembre)?|oct(?:ober|ubre)?|nov(?:ember|iembre)?|dec(?:ember|iembre)?|janvier|fevrier|mars|avril|juin|juillet|aout|septembre|octobre|novembre|decembre|enero|abril|agosto|diciembre|gennaio|maggio|giugno|luglio|settembre|ottobre|dicembre)\b/i);
+  if (!match) return "";
+  const monthIndex = mapMonthTokenToIndex(match[2]);
+  if (monthIndex == null) return "";
+  const now = new Date();
+  let due = new Date(now.getFullYear(), monthIndex, Number(match[1]));
+  if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+    due = new Date(now.getFullYear() + 1, monthIndex, Number(match[1]));
+  }
+  return due.toISOString().slice(0, 10);
+}
+
+function mapMonthTokenToIndex(token) {
+  const normalized = String(token || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const map = {
+    jan: 0, january: 0, janvier: 0, enero: 0, gennaio: 0,
+    feb: 1, february: 1, fevrier: 1, febrero: 1, febbraio: 1,
+    mar: 2, march: 2, mars: 2, marzo: 2,
+    apr: 3, april: 3, avril: 3, abril: 3, aprile: 3,
+    may: 4, mai: 4, mayo: 4, maggio: 4,
+    jun: 5, june: 5, juin: 5, junio: 5, giugno: 5,
+    jul: 6, july: 6, juillet: 6, julio: 6, luglio: 6,
+    aug: 7, august: 7, aout: 7, agosto: 7,
+    sep: 8, sept: 8, september: 8, septembre: 8, septiembre: 8, settembre: 8,
+    oct: 9, october: 9, octobre: 9, octubre: 9, ottobre: 9,
+    nov: 10, november: 10, novembre: 10, noviembre: 10,
+    dec: 11, december: 11, decembre: 11, diciembre: 11, dicembre: 11
+  };
+  return map[normalized];
+}
+
 async function suggestTasksFromChat() {
   const conversation = getActiveConversation();
-  els.taskSuggestionList.innerHTML = `<p class="helper-text">Blu is organizing this conversation and looking for useful follow-ups...</p>`;
+  els.taskSuggestionList.innerHTML = `<p class="helper-text">Blu is building an action plan from this conversation...</p>`;
 
   try {
+    const context = await getRecentMessageContext(conversation);
+    if (getAuthToken()) {
+      const data = await apiFetch("/api/ai/agent-plan", {
+        method: "POST",
+        body: {
+          prompt: "Organize this conversation into actionable follow-ups for approval.",
+          conversationName: conversation.name,
+          context,
+          locale: getUserLocale()
+        }
+      });
+      renderBluActionSuggestions(data.summary || "Blu prepared actions to review.", data.actions || []);
+      await syncBluAgentFromBackend();
+      return;
+    }
+
     const response = await fetch(`${getBackendUrl()}/api/ai/suggest-tasks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         conversationName: conversation.name,
-        context: await getRecentMessageContext(conversation)
+        context,
+        locale: getUserLocale()
       })
     });
     const data = await response.json();
@@ -3286,6 +4693,61 @@ async function suggestTasksFromChat() {
       <p class="helper-text">Blu could not organize this conversation yet. ${escapeHtml(formatApiError(error.message || error))}</p>
     `;
   }
+}
+
+function renderBluActionSuggestions(summary, actions) {
+  els.taskSuggestionList.innerHTML = "";
+  const plannedActions = Array.isArray(actions) ? actions.filter((action) => action.status !== "rejected") : [];
+  if (!plannedActions.length) {
+    els.taskSuggestionList.innerHTML = `<p class="helper-text">Blu did not find clear actions in the recent chat.</p>`;
+    return;
+  }
+
+  const summaryCard = document.createElement("article");
+  summaryCard.className = "suggestion-card blu-summary-card";
+  summaryCard.innerHTML = `
+    <div>
+      <strong>Blu action plan</strong>
+      <span>${escapeHtml(summary || "Blu prepared actions to review.")}</span>
+      <span>Approve tasks one by one, or use the Blu Actions panel to process the whole queue.</span>
+    </div>
+  `;
+  els.taskSuggestionList.append(summaryCard);
+
+  plannedActions.forEach((action) => {
+    upsertBluAction(action);
+    const card = document.createElement("article");
+    card.className = "suggestion-card blu-agent-suggestion";
+    card.innerHTML = `
+      <div>
+        <strong>${escapeHtml(action.title || "Untitled action")}</strong>
+        <span>${escapeHtml(action.reason || "Suggested by Blu")}</span>
+        <span>${escapeHtml(formatAgentActionType(action.type))} · ${escapeHtml(action.assignee || "Me")}${action.due ? ` · Due ${escapeHtml(formatDate(action.due))}` : ""}</span>
+      </div>
+      <div class="suggestion-actions">
+        <button class="ghost-button" type="button" data-action="reject">Reject</button>
+        <button class="primary-button" type="button" data-action="approve">${action.type === "draft_reply" ? "Use" : "Approve"}</button>
+      </div>
+    `;
+    card.querySelector('[data-action="approve"]')?.addEventListener("click", async () => {
+      await updateBluActionStatus(action, "approved");
+      card.remove();
+      if (!els.taskSuggestionList.querySelector(".blu-agent-suggestion")) {
+        els.taskSuggestionList.innerHTML = `<p class="helper-text">All Blu actions for this conversation have been reviewed.</p>`;
+      }
+    });
+    card.querySelector('[data-action="reject"]')?.addEventListener("click", async () => {
+      await updateBluActionStatus(action, "rejected");
+      card.remove();
+      if (!els.taskSuggestionList.querySelector(".blu-agent-suggestion")) {
+        els.taskSuggestionList.innerHTML = `<p class="helper-text">All Blu actions for this conversation have been reviewed.</p>`;
+      }
+    });
+    els.taskSuggestionList.append(card);
+  });
+
+  saveState();
+  renderBluActions();
 }
 
 function renderTaskSuggestions(tasks) {
@@ -4445,6 +5907,19 @@ function showTaskConfirmation(task) {
   }, 3200);
 }
 
+function showAppToast(title, message) {
+  if (!els.taskToast) return;
+  clearTimeout(taskToastTimer);
+  els.taskToast.innerHTML = `
+    <strong>${escapeHtml(title)}</strong>
+    <span>${escapeHtml(message)}</span>
+  `;
+  els.taskToast.hidden = false;
+  taskToastTimer = setTimeout(() => {
+    els.taskToast.hidden = true;
+  }, 3200);
+}
+
 function addTask(title, due, priority, assignee = "Me", reminderAt = "") {
   if (!title) return null;
   const repaired = repairTaskInput(title, assignee);
@@ -5029,9 +6504,16 @@ async function syncWorkspaceToBackend() {
 async function createEmployeeInvite() {
   const email = els.workspaceInviteEmail.value.trim().toLowerCase();
   const role = els.workspaceInviteRole.value || "employee";
+  const grantableRoles = getGrantableWorkspaceRoles();
   if (!isValidEmail(email)) {
     els.workspaceInviteEmail.setCustomValidity("Enter the employee work email first.");
     els.workspaceInviteEmail.reportValidity();
+    return;
+  }
+  if (!grantableRoles.includes(role)) {
+    els.workspaceInviteStatus.textContent = state.workspace?.role === "Superadmin"
+      ? "Choose a valid access level for this invite."
+      : "You do not have permission to grant this access level.";
     return;
   }
   els.workspaceInviteEmail.setCustomValidity("");
@@ -5183,7 +6665,9 @@ function getNameFromEmail(email) {
 
 function toDisplayRole(role) {
   const normalized = String(role || "").toLowerCase();
+  if (normalized === "superadmin" || normalized === "super_admin") return "Superadmin";
   if (normalized === "admin") return "Admin";
+  if (normalized === "manager") return "Manager";
   if (normalized === "team_lead") return "Team Lead";
   return "Employee";
 }
@@ -5197,15 +6681,15 @@ function stepOrder(step) {
 }
 
 function formatTime() {
-  return new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" }).format(new Date());
+  return new Intl.DateTimeFormat(getUserLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date());
 }
 
 function formatDate(value) {
-  return new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
+  return new Intl.DateTimeFormat(getUserLocale(), { month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
 function formatDateTime(value) {
-  return new Intl.DateTimeFormat([], {
+  return new Intl.DateTimeFormat(getUserLocale(), {
     month: "short",
     day: "numeric",
     hour: "2-digit",
