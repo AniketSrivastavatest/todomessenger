@@ -20,11 +20,14 @@ import java.nio.charset.StandardCharsets;
 public class TodoFirebaseMessagingService extends FirebaseMessagingService {
     private static final String CHANNEL_ID = "task_reminders";
     private static final String BACKEND_URL = "https://todomessenger-backend.onrender.com";
+    private static final String GROUP_GENERAL_CHATS = "tm_group_chats";
+    private static final String GROUP_TASKS = "tm_group_tasks";
 
     @Override
     public void onMessageReceived(RemoteMessage message) {
         String title = "TodoMessenger";
         String body = "You have a new reminder.";
+        String requestedDestination = message != null ? message.getData().get("destination") : null;
 
         if (message.getNotification() != null) {
             if (message.getNotification().getTitle() != null) {
@@ -42,7 +45,10 @@ public class TodoFirebaseMessagingService extends FirebaseMessagingService {
             body = message.getData().get("body");
         }
 
-        showNotification(title, body);
+        showNotification(title, body, message);
+        if (shouldIncrementUnreadBadge(requestedDestination, title, body)) {
+            NotificationBadgeHelper.incrementUnreadBadge(this);
+        }
     }
 
     @Override
@@ -51,28 +57,119 @@ public class TodoFirebaseMessagingService extends FirebaseMessagingService {
         registerFcmTokenWithBackend(token);
     }
 
-    private void showNotification(String title, String body) {
+    private void showNotification(String title, String body, RemoteMessage message) {
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         ensureChannel(manager);
 
         Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        String destination = "chats";
+        String requestedDestination = message != null ? message.getData().get("destination") : null;
+        String conversationId = message != null ? message.getData().get("conversationId") : null;
+        String conversationName = message != null ? message.getData().get("conversationName") : null;
+        if ("task".equalsIgnoreCase(requestedDestination)) {
+            destination = "tasks";
+        } else if ("tasks".equalsIgnoreCase(requestedDestination)) {
+            destination = "tasks";
+        } else if ("addTask".equalsIgnoreCase(requestedDestination)) {
+            destination = "addTask";
+        } else if ("settings".equalsIgnoreCase(requestedDestination)) {
+            destination = "settings";
+        } else if (messageLooksTaskRelated(title, body)) {
+            destination = "tasks";
+        }
+        intent.putExtra("destination", destination);
+        if (conversationId != null && !conversationId.isEmpty()) {
+            intent.putExtra("conversationId", conversationId);
+        }
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
-                0,
+                buildSummaryNotificationId(resolveGroupKey(destination, conversationId)),
                 intent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
 
+        String groupKey = resolveGroupKey(destination, conversationId);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_notification)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH);
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setGroup(groupKey)
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+                .setCategory("tasks".equals(destination) ? NotificationCompat.CATEGORY_REMINDER : NotificationCompat.CATEGORY_MESSAGE);
 
         manager.notify((int) System.currentTimeMillis(), builder.build());
+        manager.notify(
+                buildSummaryNotificationId(groupKey),
+                buildSummaryNotification(groupKey, destination, conversationName, title, body, pendingIntent).build()
+        );
+    }
+
+    private boolean shouldIncrementUnreadBadge(String requestedDestination, String title, String body) {
+        if ("tasks".equalsIgnoreCase(requestedDestination)
+                || "task".equalsIgnoreCase(requestedDestination)
+                || "addTask".equalsIgnoreCase(requestedDestination)
+                || "settings".equalsIgnoreCase(requestedDestination)) {
+            return false;
+        }
+        return !messageLooksTaskRelated(title, body);
+    }
+
+    private boolean messageLooksTaskRelated(String title, String body) {
+        String combined = (title + " " + body).toLowerCase();
+        return combined.contains("task") || combined.contains("reminder") || combined.contains("due");
+    }
+
+    private String resolveGroupKey(String destination, String conversationId) {
+        if ("tasks".equals(destination) || "task".equals(destination)) {
+            return GROUP_TASKS;
+        }
+        if (conversationId != null && !conversationId.isEmpty()) {
+            return "tm_conversation_" + conversationId;
+        }
+        return GROUP_GENERAL_CHATS;
+    }
+
+    private int buildSummaryNotificationId(String groupKey) {
+        return 200000 + Math.abs(groupKey.hashCode() % 100000);
+    }
+
+    private NotificationCompat.Builder buildSummaryNotification(
+            String groupKey,
+            String destination,
+            String conversationName,
+            String title,
+            String body,
+            PendingIntent pendingIntent
+    ) {
+        String summaryTitle;
+        String summaryBody;
+        if ("tasks".equals(destination)) {
+            summaryTitle = getString(R.string.notification_group_tasks_title);
+            summaryBody = getString(R.string.notification_group_tasks_body);
+        } else if (conversationName != null && !conversationName.isEmpty()) {
+            summaryTitle = conversationName;
+            summaryBody = body;
+        } else {
+            summaryTitle = getString(R.string.notification_group_chats_title);
+            summaryBody = title;
+        }
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_notification)
+                .setContentTitle(summaryTitle)
+                .setContentText(summaryBody)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .setGroup(groupKey)
+                .setGroupSummary(true)
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+                .setCategory("tasks".equals(destination) ? NotificationCompat.CATEGORY_REMINDER : NotificationCompat.CATEGORY_MESSAGE)
+                .setPriority(NotificationCompat.PRIORITY_HIGH);
     }
 
     private void ensureChannel(NotificationManager manager) {

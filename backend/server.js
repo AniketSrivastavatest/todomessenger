@@ -1536,6 +1536,13 @@ async function updateTaskRecord(auth, taskId, body) {
   }
 
   const done = typeof body.done === "boolean" ? body.done : undefined;
+  const assigneeName = String(body.assignee || "").trim();
+  const assignee = assigneeName && assigneeName.toLowerCase() !== "me"
+    ? (await postgresRows(
+        "select id, name, email from users where company_id = $1 and lower(name) = lower($2) limit 1",
+        [auth.companyId, assigneeName]
+      ))[0]
+    : null;
   const rows = await postgresRows(
     `update tasks
      set title = coalesce($3, title),
@@ -1543,6 +1550,8 @@ async function updateTaskRecord(auth, taskId, body) {
          status = coalesce($5, status),
          due_at = coalesce($6, due_at),
          reminder_at = coalesce($7, reminder_at),
+         assignee_id = coalesce($8, assignee_id),
+         assignee_external = coalesce($9, assignee_external),
          updated_at = now()
      where id = $1 and company_id = $2
      returning *`,
@@ -1553,7 +1562,9 @@ async function updateTaskRecord(auth, taskId, body) {
       body.priority ? normalizePriority(body.priority) : null,
       done === undefined ? (body.status ? normalizeTaskStatus(body.status) : null) : (done ? "done" : "open"),
       body.due || body.dueAt ? normalizeOptionalDate(body.due || body.dueAt) : null,
-      body.reminderAt ? normalizeOptionalDate(body.reminderAt) : null
+      body.reminderAt ? normalizeOptionalDate(body.reminderAt) : null,
+      body.assignee ? (assignee?.id || (assigneeName.toLowerCase() === "me" ? auth.user.id : null)) : null,
+      body.assignee ? (assignee ? null : (assigneeName && assigneeName.toLowerCase() !== "me" ? assigneeName : null)) : null
     ]
   );
 
@@ -3285,6 +3296,11 @@ async function registerPushToken(auth, body) {
 }
 
 async function sendTestPush(auth, body) {
+  const pushData = buildConversationPushData(body.data || {}, {
+    conversationId: body.conversationId || body.data?.conversationId || "",
+    conversationName: body.conversationName || body.data?.conversationName || "",
+    destination: body.destination || body.data?.destination || ""
+  });
   if (auth && hasPostgresConfig() && !body.token) {
     const rows = await postgresRows(
       `select token from push_tokens
@@ -3298,7 +3314,7 @@ async function sendTestPush(auth, body) {
         token: rows[0].token,
         title: body.title || "TodoMessenger reminder",
         body: body.body || "This is a Firebase Cloud Messaging test.",
-        data: body.data || {}
+        data: pushData
       });
     }
   }
@@ -3314,7 +3330,7 @@ async function sendTestPush(auth, body) {
     token,
     title: body.title || "TodoMessenger reminder",
     body: body.body || "This is a Firebase Cloud Messaging test.",
-    data: body.data || {}
+    data: pushData
   });
 }
 
@@ -3348,6 +3364,7 @@ async function scheduleReminder(auth, body) {
   const reminder = {
     id: String(body.id),
     title: String(body.title).slice(0, 160),
+    conversationId: String(body.conversationId || "").slice(0, 120),
     conversationName: String(body.conversationName || "TodoMessenger").slice(0, 100),
     assignee: String(body.assignee || "Me").slice(0, 80),
     userId: String(body.userId || "demo-user"),
@@ -3418,10 +3435,14 @@ async function processDueReminders() {
         token,
         title: `Reminder: ${reminder.title}`,
         body: `${reminder.conversationName} - assigned to ${reminder.assignee || "Me"}`,
-        data: {
+        data: buildConversationPushData({
           reminderId: reminder.id,
           type: "task_reminder"
-        }
+        }, {
+          conversationId: reminder.conversationId,
+          conversationName: reminder.conversationName,
+          destination: reminder.conversationId ? "chats" : "tasks"
+        })
       });
       reminder.sentAt = new Date().toISOString();
       reminder.lastError = "";
@@ -3443,7 +3464,7 @@ async function processDueReminders() {
 async function processDuePostgresReminders() {
   const dueTasks = await postgresRows(
     `select
-       t.id, t.title, t.assignee_id, t.created_by, t.company_id, t.reminder_at,
+       t.id, t.title, t.assignee_id, t.created_by, t.company_id, t.reminder_at, t.conversation_id,
        coalesce(c.name, 'TodoMessenger') as conversation_name,
        coalesce(assignee.name, creator.name, 'Me') as assignee_name
      from tasks t
@@ -3468,11 +3489,15 @@ async function processDuePostgresReminders() {
         token,
         title: `Reminder: ${task.title}`,
         body: `${task.conversation_name} - assigned to ${task.assignee_name || "Me"}`,
-        data: {
+        data: buildConversationPushData({
           reminderId: task.id,
           taskId: task.id,
           type: "task_reminder"
-        }
+        }, {
+          conversationId: task.conversation_id || "",
+          conversationName: task.conversation_name || "TodoMessenger",
+          destination: task.conversation_id ? "chats" : "tasks"
+        })
       });
       await postgresQuery("update tasks set reminder_sent_at = now(), updated_at = now() where id = $1", [task.id]);
     } catch (error) {
@@ -3500,6 +3525,19 @@ function getPushTokenForReminder(store, reminder) {
     store.pushTokens[0]?.token ||
     ""
   );
+}
+
+function buildConversationPushData(baseData = {}, meta = {}) {
+  const data = { ...(baseData || {}) };
+  const conversationId = String(meta.conversationId || data.conversationId || "").trim();
+  const conversationName = String(meta.conversationName || data.conversationName || "").trim();
+  const destination = String(meta.destination || data.destination || "").trim();
+
+  if (conversationId) data.conversationId = conversationId;
+  if (conversationName) data.conversationName = conversationName;
+  if (destination) data.destination = destination;
+
+  return data;
 }
 
 async function sendFcmMessage({ token, title, body, data = {} }) {
