@@ -1,0 +1,18 @@
+{
+  "name": "TodoMessenger",
+  "short_name": "TodoMessenger",
+  "description": "Secure team messaging and task management for modern workplaces.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020a24",
+  "theme_color": "#020a24",
+  "icons": [
+    {
+      "src": "/brand-logo.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

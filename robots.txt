@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /app.html
+
+Sitemap: https://todomessenger.live/sitemap.xml

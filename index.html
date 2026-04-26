@@ -8,13 +8,15 @@
       name="description"
       content="TodoMessenger is a secure team messaging app with built-in task management, reminders, approvals, Blu AI workflows, and integrations for modern workplaces."
     >
-    <meta
-      name="keywords"
-      content="secure team messaging, business chat app, workplace messaging, team task management, encrypted team chat, work chat with tasks, AI assistant for teams, project chat app, team reminders, business messaging platform"
-    >
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="author" content="TodoMessenger">
+    <meta name="application-name" content="TodoMessenger">
+    <meta name="theme-color" content="#020a24">
+    <meta name="apple-mobile-web-app-title" content="TodoMessenger">
     <link rel="canonical" href="https://todomessenger.live/">
+    <link rel="icon" type="image/png" href="/brand-logo.png">
+    <link rel="apple-touch-icon" href="/brand-logo.png">
+    <link rel="manifest" href="/manifest.webmanifest">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="TodoMessenger">
     <meta property="og:title" content="TodoMessenger | Secure Team Messaging and Task Management">
@@ -32,6 +34,34 @@
     >
     <meta name="twitter:image" content="https://todomessenger.live/brand-logo.png">
     <link rel="stylesheet" href="website.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://todomessenger.live/#organization",
+            "name": "TodoMessenger",
+            "url": "https://todomessenger.live/",
+            "logo": "https://todomessenger.live/brand-logo.png",
+            "sameAs": [
+              "https://todomessenger.live/"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://todomessenger.live/#website",
+            "url": "https://todomessenger.live/",
+            "name": "TodoMessenger",
+            "description": "Secure team messaging and task management for modern workplaces.",
+            "publisher": {
+              "@id": "https://todomessenger.live/#organization"
+            },
+            "inLanguage": "en"
+          }
+        ]
+      }
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -56,9 +86,7 @@
           "availability": "https://schema.org/InStock"
         },
         "publisher": {
-          "@type": "Organization",
-          "name": "TodoMessenger",
-          "url": "https://todomessenger.live/"
+          "@id": "https://todomessenger.live/#organization"
         }
       }
     </script>
